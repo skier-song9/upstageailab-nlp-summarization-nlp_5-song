@@ -18,14 +18,12 @@ class Preprocess:
         # is_train 플래그가 True이면 학습용 데이터로 처리
         if is_train:
             df = pd.read_csv(file_path) # CSV 파일을 읽어 데이터프레임 생성
-            # train_df = df[['fname','dialogue','summary']] # 이전 코드: 'fname', 'dialogue', 'summary' 컬럼 선택
-            train_df = df[['id','dialogue','summary']] # 'id', 'dialogue', 'summary' 컬럼을 선택하여 학습 데이터프레임 생성
+            train_df = df[['fname','dialogue','summary']] # 'fname', 'dialogue', 'summary' 컬럼 선택
             return train_df # 생성된 학습 데이터프레임 반환
         # is_train 플래그가 False이면 테스트용 데이터로 처리
         else:
             df = pd.read_csv(file_path) # CSV 파일을 읽어 데이터프레임 생성
-            # test_df = df[['fname','dialogue']] # 이전 코드: 'fname', 'dialogue' 컬럼 선택
-            test_df = df[['id','dialogue']] # 'id', 'dialogue' 컬럼을 선택하여 테스트 데이터프레임 생성
+            test_df = df[['fname','dialogue']] # 'fname', 'dialogue' 컬럼 선택
             return test_df # 생성된 테스트 데이터프레임 반환
 
     # BART 모델의 입력, 출력 형태를 맞추기 위해 전처리를 진행합니다.

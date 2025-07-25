@@ -68,11 +68,11 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
         gradient_checkpointing=config['training']["gradient_checkpointing"],
         gradient_checkpointing_kwargs=config['training']["gradient_checkpointing_kwargs"],
         gradient_accumulation_steps=config['training']["gradient_accumulation_steps"],
-        torch_empty_cache_steps=config['training']["torch_empty_cache_steps"],
+        # torch_empty_cache_steps=config['training']["torch_empty_cache_steps"],
         dataloader_num_workers=config['training']["dataloader_num_workers"],
 
         per_device_eval_batch_size=config['training']["per_device_eval_batch_size"],
-        eval_strategy=config['training']["eval_strategy"],
+        evaluation_strategy=config['training']["evaluation_strategy"],
         eval_steps=config['training']["eval_steps"],
         
         predict_with_generate=config['training']["predict_with_generate"],
@@ -88,8 +88,10 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
     )
 
     # (선택) 모델 checkpoint를 wandb에 저장하도록 환경 변수를 설정합니다.
-    os.environ["WANDB_LOG_MODEL"]="checkpoint"
+    os.environ["WANDB_LOG_MODEL"]="end" # wandb에 가장 validation 점수가 좋은 checkpoint만 업로드하여 storage 절약.
     os.environ["WANDB_WATCH"]="false"
+    # Hugging Face의 tokenizers 라이브러리가 병렬 처리(parallelism) 기능을 사용할지 여부
+    os.environ['TOKENIZERS_PARALLELISM'] = "true"
 
     # Validation loss가 더 이상 개선되지 않을 때 학습을 중단시키는 EarlyStopping 기능을 사용합니다.
     MyCallback = EarlyStoppingCallback(
