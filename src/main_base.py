@@ -21,7 +21,7 @@ import wandb # 모델 학습 과정을 손쉽게 Tracking하고, 시각화할 �
 project_dir = "/mnt/c/SKH/ai_lab_13/projects/nlp-text-summarization/song"
 
 import sys
-sys.append(
+sys.path.append(
     project_dir
 )
 from src.dataset.dataset_base import *
