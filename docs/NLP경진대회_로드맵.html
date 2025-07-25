@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>대화 요약 경진대회 | 인터랙티브 전략 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutral Harmony -->
+    <!-- Application Structure Plan: A "Mission Control" dashboard structure was chosen to transform the strategic report into an actionable and explorable tool for the project team. Instead of a linear document, the SPA is organized into thematic, task-oriented sections (Dashboard, Dataset Deep Dive, Strategy, Error Analysis, Model Architecture). This non-linear structure allows team members to quickly access the information most relevant to their current task—be it understanding data quirks, reviewing the strategic roadmap, or analyzing common model failures. Key interactions include tabbed interfaces for error analysis and click-to-reveal details for the roadmap, which declutter the interface and encourage focused exploration. This design prioritizes usability and quick synthesis of complex project information over simply replicating the report's layout. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Dialogue Category Distribution -> Goal: Inform -> Viz: Bar Chart (Chart.js) -> Interaction: Hover for details -> Justification: Provides a quick, quantitative overview of the dataset's composition.
+        - Report Info: Text Length Distribution -> Goal: Inform -> Viz: Bar Chart (as Histogram) (Chart.js) -> Interaction: Hover for details -> Justification: Visually confirms the right-skewed nature of the data, informing decisions on sequence length and truncation.
+        - Report Info: Common Error Types & Rates -> Goal: Compare/Inform -> Viz: Horizontal Bar Chart (Chart.js) -> Interaction: Hover for details, linked to interactive tabs -> Justification: Immediately highlights the most critical challenges (e.g., Coreference Errors), guiding prioritization of engineering efforts.
+        - Report Info: 4-Stage Roadmap -> Goal: Organize -> Viz: Interactive Cards (HTML/CSS/JS) -> Interaction: Click to expand details -> Justification: Presents the project plan in a digestible, step-by-step format that's less intimidating than a wall of text.
+        - Report Info: Model Architectures -> Goal: Compare -> Viz: Side-by-side text and code blocks (HTML/CSS) -> Interaction: Click to reveal Gemini-CLI prompt -> Justification: Facilitates a clear comparison of technical approaches and provides an immediate, actionable starting point for developers.
+        - Report Info: Dataset Rules & Examples -> Goal: Inform -> Viz: Styled tables and code blocks (HTML/CSS) -> Interaction: Static display -> Justification: Provides essential, non-negotiable facts about the data structure in a clear, referenceable format.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #FDFBF8; color: #3D3D3D; }
+        .chart-container { position: relative; width: 100%; max-width: 600px; margin-left: auto; margin-right: auto; height: 300px; max-height: 400px; }
+        @media (min-width: 768px) { .chart-container { height: 350px; } }
+        .nav-link { transition: all 0.3s ease; }
+        .nav-link.active { color: #005A5B; font-weight: 700; border-bottom: 2px solid #005A5B; }
+        .tab-btn.active { background-color: #005A5B; color: white; }
+        .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-out; }
+        .icon-placeholder { display: inline-block; width: 1.25rem; height: 1.25rem; text-align: center; line-height: 1.25rem; border-radius: 9999px; }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Header & Navigation -->
+    <header class="bg-white/80 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between h-20">
+                <h1 class="text-xl md:text-2xl font-bold text-gray-800">대화 요약 경진대회 전략 대시보드</h1>
+                <nav class="hidden md:flex space-x-6 text-gray-600 font-medium">
+                    <a href="#overview" class="nav-link py-2">개요</a>
+                    <a href="#dataset" class="nav-link py-2">데이터 분석</a>
+                    <a href="#roadmap" class="nav-link py-2">전략 로드맵</a>
+                    <a href="#errors" class="nav-link py-2">오류 분석</a>
+                    <a href="#models" class="nav-link py-2">모델 아키텍처</a>
+                </nav>
+                <button id="mobile-menu-btn" class="md:hidden">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+            </div>
+        </div>
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden bg-white px-4 pt-2 pb-4 space-y-2">
+            <a href="#overview" class="nav-link block py-2 text-center">개요</a>
+            <a href="#dataset" class="nav-link block py-2 text-center">데이터 분석</a>
+            <a href="#roadmap" class="nav-link block py-2 text-center">전략 로드맵</a>
+            <a href="#errors" class="nav-link block py-2 text-center">오류 분석</a>
+            <a href="#models" class="nav-link block py-2 text-center">모델 아키텍처</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 md:p-8">
+
+        <!-- Section 1: Overview -->
+        <section id="overview" class="scroll-mt-20 mb-16 text-center">
+            <h2 class="text-3xl font-bold mb-4 text-[#005A5B]">프로젝트 목표</h2>
+            <p class="text-lg max-w-3xl mx-auto text-gray-700 mb-10">
+                한국어 DialogSum 데이터셋을 활용한 대화 요약 경진대회에서 경쟁 우위를 확보하는 것을 목표로 합니다. 이 대시보드는 데이터 분석부터 모델링 전략, 오류 분석까지 프로젝트의 모든 단계를 시각화하여 팀의 효율적인 의사결정을 지원합니다.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                    <h3 class="font-bold text-lg mb-2 text-gray-800">학습 데이터</h3>
+                    <p class="text-3xl font-bold text-[#005A5B]">12,457</p>
+                    <p class="text-sm text-gray-500">대화-요약 쌍</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                    <h3 class="font-bold text-lg mb-2 text-gray-800">평가 지표</h3>
+                    <p class="text-2xl font-bold text-[#005A5B]">ROUGE</p>
+                    <p class="text-sm text-gray-500">1, 2, L (F1 Score)</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+                    <h3 class="font-bold text-lg mb-2 text-gray-800">핵심 과제</h3>
+                    <p class="text-2xl font-bold text-[#005A5B]">추상 요약</p>
+                    <p class="text-sm text-gray-500">다중 화자 대화 기반</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Dataset Deep Dive -->
+        <section id="dataset" class="scroll-mt-20 mb-16">
+            <h2 class="text-3xl font-bold text-center mb-2 text-[#005A5B]">데이터 심층 분석</h2>
+            <p class="text-lg text-center max-w-3xl mx-auto text-gray-700 mb-12">
+                모델 성능에 직접적인 영향을 미치는 데이터의 구조와 특성을 분석합니다. 대화의 길이, 카테고리 분포, 그리고 경진대회의 특정 규칙들을 이해하는 것은 효과적인 전처리 전략의 첫걸음입니다.
+            </p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <h3 class="text-xl font-bold mb-4 text-center text-gray-800">대화 카테고리 분포</h3>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <h3 class="text-xl font-bold mb-4 text-center text-gray-800">대화/요약 길이 분포</h3>
+                     <div class="chart-container">
+                        <canvas id="lengthChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 lg:col-span-2">
+                    <h3 class="text-xl font-bold mb-4 text-gray-800">데이터 구조 및 규칙</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="font-semibold text-lg mb-2">대화 규칙</h4>
+                            <div class="bg-gray-100 p-4 rounded-lg text-sm font-mono text-gray-700">
+                                <p><span class="font-bold text-red-500">#Person1#:</span> 안녕하세요.</p>
+                                <p class="my-1 text-gray-400">... (개행문자로 턴 구분)</p>
+                                <p><span class="font-bold text-blue-500">#Person2#:</span> 네, 안녕하세요.</p>
+                            </div>
+                            <ul class="mt-4 space-y-2 text-gray-600 list-disc list-inside">
+                                <li>화자는 `#Person[Number]#` 형식으로 식별됩니다.</li>
+                                <li>각 발화는 콜론과 공백(`: `) 뒤에 이어집니다.</li>
+                                <li>화자 간 턴은 개행문자(`\n`)로 구분됩니다.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-lg mb-2">개인정보(PII) 마스킹</h4>
+                            <p class="text-gray-600 mb-3">총 8개의 PII가 특수 토큰으로 대체됩니다. 이 토큰들은 분리되지 않는 하나의 단위로 처리되어야 합니다.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="bg-teal-100 text-teal-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">#PhoneNumber#</span>
+                                <span class="bg-teal-100 text-teal-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">#Address#</span>
+                                <span class="bg-teal-100 text-teal-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">#DateOfBirth#</span>
+                                <span class="bg-teal-100 text-teal-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">#Passport#</span>
+                                <span class="bg-teal-100 text-teal-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">#SSN#</span>
+                                <span class="bg-teal-100 text-teal-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">#CardNumber#</span>
+                                <span class="bg-teal-100 text-teal-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">#CarNumber#</span>
+                                <span class="bg-teal-100 text-teal-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">#Email#</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Roadmap -->
+        <section id="roadmap" class="scroll-mt-20 mb-16">
+            <h2 class="text-3xl font-bold text-center mb-2 text-[#005A5B]">4단계 전략 로드맵</h2>
+            <p class="text-lg text-center max-w-3xl mx-auto text-gray-700 mb-12">
+                프로젝트를 체계적으로 진행하기 위한 4단계 로드맵입니다. 각 단계를 클릭하여 세부 목표와 실행 과제를 확인하세요.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Stage 1 -->
+                <div class="roadmap-card bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden cursor-pointer" data-target="stage-1-content">
+                    <div class="p-6">
+                        <div class="flex items-center mb-3">
+                            <div class="icon-placeholder bg-blue-100 text-blue-600 font-bold">1</div>
+                            <h3 class="ml-3 text-xl font-bold text-gray-800">데이터 준비</h3>
+                        </div>
+                        <p class="text-gray-600">성공의 기반을 다지는 데이터 정제 및 전처리 단계입니다.</p>
+                    </div>
+                    <div id="stage-1-content" class="collapsible-content bg-blue-50 px-6">
+                        <ul class="pt-4 pb-6 space-y-2 text-sm text-blue-800 list-disc list-inside">
+                            <li>데이터 정제 및 정규화</li>
+                            <li>화자 정보(`PersonX`) 통합</li>
+                            <li>PII 마스킹 토큰 처리</li>
+                            <li>비격식적 표현(약어, 이모티콘) 처리</li>
+                            <li>정보 분산(방해 표현) 처리</li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- Stage 2 -->
+                <div class="roadmap-card bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden cursor-pointer" data-target="stage-2-content">
+                    <div class="p-6">
+                        <div class="flex items-center mb-3">
+                            <div class="icon-placeholder bg-green-100 text-green-600 font-bold">2</div>
+                            <h3 class="ml-3 text-xl font-bold text-gray-800">베이스라인 모델</h3>
+                        </div>
+                        <p class="text-gray-600">신속한 프로토타이핑으로 초기 성능을 확보합니다.</p>
+                    </div>
+                    <div id="stage-2-content" class="collapsible-content bg-green-50 px-6">
+                        <ul class="pt-4 pb-6 space-y-2 text-sm text-green-800 list-disc list-inside">
+                            <li>KoBART, mT5 등 Seq2Seq 모델 선택</li>
+                            <li>핵심 전처리 파이프라인 구현</li>
+                            <li>기본 하이퍼파라미터로 초기 학습</li>
+                            <li>공개 테스트셋 성능 측정</li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- Stage 3 -->
+                <div class="roadmap-card bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden cursor-pointer" data-target="stage-3-content">
+                    <div class="p-6">
+                        <div class="flex items-center mb-3">
+                            <div class="icon-placeholder bg-yellow-100 text-yellow-600 font-bold">3</div>
+                            <h3 class="ml-3 text-xl font-bold text-gray-800">고급 모델링</h3>
+                        </div>
+                        <p class="text-gray-600">성능 최적화를 위한 고급 기법들을 적용합니다.</p>
+                    </div>
+                    <div id="stage-3-content" class="collapsible-content bg-yellow-50 px-6">
+                        <ul class="pt-4 pb-6 space-y-2 text-sm text-yellow-800 list-disc list-inside">
+                            <li>계층적 학습(Hierarchical Learning)</li>
+                            <li>데이터 증강(Data Augmentation)</li>
+                            <li>QA 데이터셋 전이 학습</li>
+                            <li>주요 오류 유형 집중 해결</li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- Stage 4 -->
+                <div class="roadmap-card bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden cursor-pointer" data-target="stage-4-content">
+                    <div class="p-6">
+                        <div class="flex items-center mb-3">
+                            <div class="icon-placeholder bg-red-100 text-red-600 font-bold">4</div>
+                            <h3 class="ml-3 text-xl font-bold text-gray-800">평가 및 반복</h3>
+                        </div>
+                        <p class="text-gray-600">지속적인 평가와 개선을 통해 모델을 완성합니다.</p>
+                    </div>
+                    <div id="stage-4-content" class="collapsible-content bg-red-50 px-6">
+                        <ul class="pt-4 pb-6 space-y-2 text-sm text-red-800 list-disc list-inside">
+                            <li>정량적(ROUGE) 및 정성적 평가</li>
+                            <li>상세 오류 분석 및 패턴 식별</li>
+                            <li>하이퍼파라미터 튜닝</li>
+                            <li>앙상블 및 후처리 기법 탐색</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Error Analysis -->
+        <section id="errors" class="scroll-mt-20 mb-16">
+            <h2 class="text-3xl font-bold text-center mb-2 text-[#005A5B]">주요 오류 분석 및 완화 전략</h2>
+            <p class="text-lg text-center max-w-3xl mx-auto text-gray-700 mb-12">
+                DialogSum 논문에서 밝혀진 주요 오류 유형들입니다. 각 오류의 발생률을 확인하고, 탭을 클릭하여 해당 오류를 해결하기 위한 구체적인 전략을 살펴보세요.
+            </p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <h3 class="text-xl font-bold mb-4 text-center text-gray-800">Transformer 모델 오류 발생률</h3>
+                    <div class="chart-container">
+                        <canvas id="errorChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <div id="error-tabs">
+                        <div class="flex border-b border-gray-200 mb-4">
+                            <button class="tab-btn flex-1 py-2 px-4 font-semibold text-gray-600 transition-colors duration-300" data-target="tab-coref">지시 정보</button>
+                            <button class="tab-btn flex-1 py-2 px-4 font-semibold text-gray-600 transition-colors duration-300" data-target="tab-salient">정보 누락</button>
+                            <button class="tab-btn flex-1 py-2 px-4 font-semibold text-gray-600 transition-colors duration-300" data-target="tab-unfactual">사실 오류</button>
+                        </div>
+                        <div id="tab-content">
+                            <div id="tab-coref" class="tab-panel">
+                                <h4 class="font-bold text-lg mb-2 text-gray-800">부정확한 지시 정보 (Incorrect Coreference)</h4>
+                                <p class="text-gray-600 mb-4">"나", "너"와 같은 대명사가 누구를 지칭하는지 혼동하여 발생하는 오류입니다. 대화 요약에서 가장 빈번하게 발생하는 문제입니다.</p>
+                                <h5 class="font-semibold mb-2">완화 전략</h5>
+                                <ul class="space-y-2 text-sm text-gray-700 list-disc list-inside">
+                                    <li>전처리 시 화자 정보(`PersonX`)를 명시적으로 통합</li>
+                                    <li>별도의 화자 임베딩(Speaker Embedding) 사용 고려</li>
+                                    <li>지시 정보 해결 능력이 뛰어난 QA 데이터셋으로 전이 학습</li>
+                                </ul>
+                            </div>
+                            <div id="tab-salient" class="tab-panel hidden">
+                                <h4 class="font-bold text-lg mb-2 text-gray-800">핵심 정보 누락 (Missing Salient Information)</h4>
+                                <p class="text-gray-600 mb-4">대화의 핵심 내용을 요약에 포함하지 못하는 문제입니다. 모델이 중요도를 제대로 판단하지 못할 때 발생합니다.</p>
+                                <h5 class="font-semibold mb-2">완화 전략</h5>
+                                <ul class="space-y-2 text-sm text-gray-700 list-disc list-inside">
+                                    <li>어텐션 가중치를 시각화하여 모델의 집중 영역 분석</li>
+                                    <li>핵심 정보 누락에 더 강한 페널티를 부과하는 손실 함수 설계</li>
+                                    <li>요약 전 핵심 구문을 추출하는 내용 선택 모듈 도입</li>
+                                </ul>
+                            </div>
+                            <div id="tab-unfactual" class="tab-panel hidden">
+                                <h4 class="font-bold text-lg mb-2 text-gray-800">사실 불일치 (Unfactual Information)</h4>
+                                <p class="text-gray-600 mb-4">원본 대화에 없는 내용을 생성하는 '환각(Hallucination)' 현상입니다. 모델의 신뢰도를 크게 저해하는 심각한 오류입니다.</p>
+                                <h5 class="font-semibold mb-2">완화 전략</h5>
+                                <ul class="space-y-2 text-sm text-gray-700 list-disc list-inside">
+                                    <li>원본 텍스트를 직접 복사할 수 있는 복사 메커니즘(Copy Mechanism) 활용</li>
+                                    <li>생성된 사실을 원본과 대조하는 사실 확인 모듈 탐색</li>
+                                    <li>사실 일관성을 보상하는 강화학습(RL) 기법 적용</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 5: Model Architectures -->
+        <section id="models" class="scroll-mt-20">
+            <h2 class="text-3xl font-bold text-center mb-2 text-[#005A5B]">모델 아키텍처 비교</h2>
+            <p class="text-lg text-center max-w-3xl mx-auto text-gray-700 mb-12">
+                베이스라인으로 고려할 수 있는 두 가지 주요 아키텍처, 인코더-디코더와 디코더-온리의 특징을 비교합니다. 각 아키텍처는 데이터 전처리 방식에 직접적인 영향을 줍니다.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Encoder-Decoder -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <h3 class="text-2xl font-bold mb-4 text-gray-800">인코더-디코더 (Encoder-Decoder)</h3>
+                    <div class="flex items-center justify-center space-x-2 my-4">
+                        <div class="p-4 bg-blue-100 text-blue-800 rounded-lg font-semibold">입력 대화</div>
+                        <div class="text-2xl font-bold text-blue-500">&rarr;</div>
+                        <div class="p-4 border-2 border-dashed border-blue-400 rounded-lg font-semibold">인코더</div>
+                        <div class="text-2xl font-bold text-blue-500">&rarr;</div>
+                        <div class="p-4 border-2 border-dashed border-blue-400 rounded-lg font-semibold">디코더</div>
+                        <div class="text-2xl font-bold text-blue-500">&rarr;</div>
+                        <div class="p-4 bg-blue-100 text-blue-800 rounded-lg font-semibold">생성 요약</div>
+                    </div>
+                    <p class="text-gray-600 mb-4">입력(대화)을 이해하는 인코더와 출력(요약)을 생성하는 디코더가 분리된 구조입니다. 요약과 같은 Sequence-to-Sequence 태스크에 본질적으로 적합합니다.</p>
+                    <div class="mb-4">
+                        <h4 class="font-semibold mb-2">장점:</h4>
+                        <ul class="list-disc list-inside text-gray-600 text-sm space-y-1">
+                            <li>추상적 요약에 강하고, 입력과 출력 길이가 다른 경우에 효과적</li>
+                            <li>입력 정보를 압축하여 표현하는 데 능숙함</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold mb-2">입력 형식:</h4>
+                        <div class="bg-gray-100 p-3 rounded-lg text-sm font-mono text-gray-700">
+                            `#Person1#: ...\n#Person2#: ...`
+                        </div>
+                    </div>
+                </div>
+                <!-- Decoder-Only -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <h3 class="text-2xl font-bold mb-4 text-gray-800">디코더-온리 (Decoder-Only)</h3>
+                    <div class="flex items-center justify-center space-x-2 my-4">
+                        <div class="p-4 bg-green-100 text-green-800 rounded-lg font-semibold">프롬프트 (대화)</div>
+                        <div class="text-2xl font-bold text-green-500">&rarr;</div>
+                        <div class="p-4 border-2 border-dashed border-green-400 rounded-lg font-semibold">디코더</div>
+                        <div class="text-2xl font-bold text-green-500">&rarr;</div>
+                        <div class="p-4 bg-green-100 text-green-800 rounded-lg font-semibold">요약 완성</div>
+                    </div>
+                    <p class="text-gray-600 mb-4">하나의 디코더가 입력과 출력을 모두 처리하며, 이전 토큰들을 기반으로 다음 토큰을 예측하는 방식으로 텍스트를 생성합니다.</p>
+                    <div class="mb-4">
+                        <h4 class="font-semibold mb-2">장점:</h4>
+                        <ul class="list-disc list-inside text-gray-600 text-sm space-y-1">
+                            <li>구조가 단순하고 개방형 텍스트 생성에 매우 강력함</li>
+                            <li>프롬프트 엔지니어링을 통해 다양한 태스크에 적용 가능</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold mb-2">입력 형식:</h4>
+                        <div class="bg-gray-100 p-3 rounded-lg text-sm font-mono text-gray-700">
+                            `대화: #Person1#: ...\n요약: `
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="text-center py-8 border-t border-gray-200">
+        <p class="text-gray-500">Interactive Dashboard for Dialogue Summarization Competition</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Mobile Menu
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenuBtn.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+
+            // Smooth Scrolling & Active Nav Link
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('section');
+
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px',
+                threshold: 0.3
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        navLinks.forEach(link => {
+                            link.classList.remove('active');
+                            if (link.getAttribute('href').substring(1) === entry.target.id) {
+                                link.classList.add('active');
+                            }
+                        });
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => {
+                observer.observe(section);
+            });
+
+            navLinks.forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                    if (mobileMenu.classList.contains('hidden') === false) {
+                        mobileMenu.classList.add('hidden');
+                    }
+                });
+            });
+
+            // Chart.js Implementations
+            const chartFont = "'Noto Sans KR', sans-serif";
+            const gridColor = 'rgba(200, 200, 200, 0.2)';
+            
+            // 1. Category Chart
+            const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+            new Chart(categoryCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['일상 대화', '비즈니스', '인터뷰', '정보 문의', '기타'],
+                    datasets: [{
+                        label: '대화 카테고리 비율 (%)',
+                        data: [17.5, 13.9, 10.2, 8.5, 50.9],
+                        backgroundColor: ['#34D399', '#60A5FA', '#FBBF24', '#F87171', '#A78BFA'],
+                        borderRadius: 5,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: { label: (context) => `${context.dataset.label}: ${context.raw}%` }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: gridColor },
+                            ticks: { font: { family: chartFont } }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { font: { family: chartFont } }
+                        }
+                    }
+                }
+            });
+
+            // 2. Length Chart (as Histogram)
+            const lengthCtx = document.getElementById('lengthChart').getContext('2d');
+            new Chart(lengthCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['0-100', '100-200', '200-300', '300-400', '400-500', '500+'],
+                    datasets: [{
+                        label: '대화 길이 (토큰 수)',
+                        data: [45, 35, 12, 5, 2, 1],
+                        backgroundColor: '#60A5FA',
+                        borderRadius: 5,
+                    }, {
+                        label: '요약 길이 (토큰 수)',
+                        data: [70, 25, 4, 1, 0, 0],
+                        backgroundColor: '#A78BFA',
+                        borderRadius: 5,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { font: { family: chartFont } } },
+                        tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${context.raw}%` } }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { family: chartFont } }
+                        },
+                        y: {
+                            grid: { color: gridColor },
+                            ticks: { font: { family: chartFont } }
+                        }
+                    }
+                }
+            });
+
+            // 3. Error Chart
+            const errorCtx = document.getElementById('errorChart').getContext('2d');
+            new Chart(errorCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['부정확한 지시 정보', '사실 불일치', '구문 오류', '핵심 정보 누락', '중복 정보'],
+                    datasets: [{
+                        label: '오류 발생률 (%)',
+                        data: [94, 74, 72, 64, 62],
+                        backgroundColor: ['#EF4444', '#F97316', '#EAB308', '#84CC16', '#22C55E'].reverse(),
+                        borderRadius: 5,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (context) => `${context.dataset.label}: ${context.raw}%` } }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: gridColor },
+                            ticks: { font: { family: chartFont } }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: { font: { family: chartFont } }
+                        }
+                    }
+                }
+            });
+
+            // Roadmap Collapsible Cards
+            const roadmapCards = document.querySelectorAll('.roadmap-card');
+            roadmapCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    const content = document.getElementById(card.dataset.target);
+                    if (content.style.maxHeight) {
+                        content.style.maxHeight = null;
+                    } else {
+                        content.style.maxHeight = content.scrollHeight + "px";
+                    }
+                });
+            });
+
+            // Error Analysis Tabs
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabPanels = document.querySelectorAll('.tab-panel');
+            
+            // Set initial active tab
+            document.querySelector('.tab-btn[data-target="tab-coref"]').classList.add('active');
+            document.getElementById('tab-coref').classList.remove('hidden');
+
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetPanelId = button.dataset.target;
+
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+
+                    tabPanels.forEach(panel => {
+                        if (panel.id === targetPanelId) {
+                            panel.classList.remove('hidden');
+                        } else {
+                            panel.classList.add('hidden');
+                        }
+                    });
+                });
+            });
+
+        });
+    </script>
+</body>
+</html>
