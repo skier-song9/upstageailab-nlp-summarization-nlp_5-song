@@ -72,7 +72,6 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
         dataloader_num_workers=config['training']["dataloader_num_workers"],
 
         per_device_eval_batch_size=config['training']["per_device_eval_batch_size"],
-        # evaluation_strategy=config['training']["evaluation_strategy"],
         eval_strategy=config['training']["evaluation_strategy"],
         eval_steps=config['training']["eval_steps"],
         
