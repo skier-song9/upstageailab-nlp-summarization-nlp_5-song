@@ -10,3 +10,5 @@ seaborn
 jupyter
 notebook
 wandb
+python-dotenv
+openai
