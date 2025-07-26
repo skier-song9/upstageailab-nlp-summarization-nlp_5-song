@@ -17,7 +17,7 @@ outputs/*
 
 .env
 
-src/configs/generate_config.ipynb
+# src/configs/generate_config.ipynb
 ### <<< song gitignore <<<
 
 # Created by https://www.toptal.com/developers/gitignore/api/linux,python,venv,jupyternotebooks,macos,windows
