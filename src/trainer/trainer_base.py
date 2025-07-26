@@ -89,7 +89,7 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
     )
 
     # (선택) 모델 checkpoint를 wandb에 저장하도록 환경 변수를 설정합니다.
-    os.environ["WANDB_LOG_MODEL"]="end" # wandb에 가장 validation 점수가 좋은 checkpoint만 업로드하여 storage 절약.
+    os.environ["WANDB_LOG_MODEL"]="false" # wandb에 가장 validation 점수가 좋은 checkpoint만 업로드하여 storage 절약.
     os.environ["WANDB_WATCH"]="false"
     # Hugging Face의 tokenizers 라이브러리가 병렬 처리(parallelism) 기능을 사용할지 여부
     os.environ['TOKENIZERS_PARALLELISM'] = "true"
