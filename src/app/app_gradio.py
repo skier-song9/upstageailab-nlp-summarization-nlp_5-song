@@ -268,6 +268,10 @@ with gr.Blocks() as demo:
             inputs=[topic_select],
             outputs=[topic_select, train_topic_display, val_topic_display]
         )
+    
+    with gr.Tab("Explore Submission file"):
+        
+        pass
 
 
 if __name__ == "__main__":
