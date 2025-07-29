@@ -6,7 +6,14 @@ def load_tokenizer_and_model_for_train(config, device):
     print('-'*10, f'Model Name : {config["general"]["model_name"]}', '-'*10,)
     model_name = config['general']['model_name']
     model_config = AutoConfig.from_pretrained(model_name)
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    tokenizer_args_dict = {
+        "pretrained_model_name_or_path": model_name
+    }
+    if 't5' in model_name.lower():
+        tokenizer_args_dict['legacy'] = False
+        tokenizer_args_dict['use_fast'] = False
+    tokenizer = AutoTokenizer.from_pretrained(**tokenizer_args_dict)
     try:
         generate_model = AutoModelForSeq2SeqLM.from_pretrained(config['general']['model_name'],config=model_config)
     except:
