@@ -79,13 +79,16 @@ def inference(config, generate_model, tokenizer):
             )
             
             # 개선: batch_decode와 skip_special_tokens=True를 사용하여 디코딩을 효율적으로 처리합니다.
-            decoded_summaries = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-            summary.extend(decoded_summaries)
+            # decoded_summaries = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
+            for ids in generated_ids:
+                result = tokenizer.decode(ids)
+                summary.append(result)
+            # summary.extend(decoded_summaries)
 
     # 정확한 평가를 위하여 노이즈에 해당되는 스페셜 토큰을 제거합니다.
     # skip_special_tokens=True로 대부분 처리되지만, 사용자 정의 토큰 제거 로직은 유지합니다.
     remove_tokens = config['inference'].get('remove_tokens', []) # .get()으로 키 존재 여부 처리
-    preprocessed_summary = summary
+    preprocessed_summary = summary.copy()
     if remove_tokens:
         for token in remove_tokens:
             preprocessed_summary = [sentence.replace(token," ").strip() for sentence in preprocessed_summary]
