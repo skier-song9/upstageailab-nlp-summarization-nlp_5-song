@@ -1,10 +1,10 @@
 general:
   data_path: ./data/
   model_name: digit82/kobart-summarization
-  output_dir: ./outputs/exp_0725163123
+  output_dir: ./outputs/exp_base_0726213408
 inference:
   batch_size: 32
-  ckt_dir: ./outputs/exp_0725163123/best
+  ckt_dir: ./outputs/exp_base_0726213408/best
   early_stopping: true
   generate_max_length: 200
   no_repeat_ngram_size: 2
@@ -14,7 +14,7 @@ inference:
   - <s>
   - </s>
   - <pad>
-  result_path: ./outputs/exp_0725163123/submission_0725163123.csv
+  result_path: ./outputs/exp_base_0726213408/submission_0726213408.csv
 tokenizer:
   bos_token: <s>
   decoder_max_len: 200
@@ -24,6 +24,7 @@ tokenizer:
   - '#Person1#'
   - '#Person2#'
   - '#Person3#'
+  - '#Person4#'
   - '#PhoneNumber#'
   - '#Address#'
   - '#DateOfBirth#'
@@ -37,7 +38,7 @@ training:
   dataloader_num_workers: 8
   early_stopping_patience: 1
   early_stopping_threshold: 0.001
-  eval_steps: 20
+  eval_steps: 400
   evaluation_strategy: steps
   fp16: true
   generation_max_length: 200
@@ -48,23 +49,24 @@ training:
   group_by_length: true
   learning_rate: 1.0e-05
   load_best_model_at_end: true
-  logging_dir: ./outputs/exp_0725163123
-  logging_steps: 20
-  num_train_epochs: 1
-  output_dir: ./outputs/exp_0725163123
+  logging_dir: ./outputs/exp_base_0726213408
+  logging_steps: 400
+  num_train_epochs: 35
+  output_dir: ./outputs/exp_base_0726213408
   overwrite_output_dir: false
   per_device_eval_batch_size: 48
-  per_device_train_batch_size: 64
+  per_device_train_batch_size: 128
   predict_with_generate: true
   remove_unused_columns: true
   report_to: all
-  save_steps: 20
+  save_steps: 400
   save_total_limit: 2
   seed: 42
+  torch_empty_cache_steps: 10
   warmup_steps: 10
   weight_decay: 0.001
 wandb:
   entity: skiersong
-  name: baseline_test1_0725163123
+  name: baseline_test_0726213408
   notes: Baseline-test
   project: nlp-5
