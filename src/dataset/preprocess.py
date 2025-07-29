@@ -31,12 +31,12 @@ class Preprocess:
         # is_test 플래그가 True이면 테스트 데이터셋용 입력 생성
         if is_test:
             encoder_input = dataset['dialogue'] # 인코더 입력으로 'dialogue' 컬럼 사용
-            # decoder_input = [self.bos_token] * len(dataset['dialogue']) # 디코더 입력은 시작 토큰(bos_token)으로만 구성 -> dialogue 개수만큼 bos_token 생성.
-            return encoder_input.tolist() # 인코더 입력과 디코더 입력을 리스트 형태로 반환
+            decoder_input = [self.bos_token] * len(dataset['dialogue']) # 디코더 입력은 시작 토큰(bos_token)으로만 구성 -> dialogue 개수만큼 bos_token 생성.
+            return encoder_input.tolist(), list(decoder_input) # 인코더 입력과 디코더 입력을 리스트 형태로 반환
         # is_test 플래그가 False이면 학습/검증 데이터셋용 입력 생성
         else:
             encoder_input = dataset['dialogue'] # 인코더 입력으로 'dialogue' 컬럼 사용
-            decoder_output = dataset['summary'] # decoder_output으로 'summary' 컬럼 사용
-            # decoder_input = dataset['summary'].apply(lambda x : self.bos_token + str(x)) # 디코더 입력은 'summary' 앞에 시작 토큰(bos_token)을 추가하여 생성
-            # decoder_output_legacy = dataset['summary'].apply(lambda x : str(x) + self.eos_token) # 디코더 출력(레이블)은 'summary' 뒤에 종료 토큰(eos_token)을 추가하여 생성
-            return encoder_input.tolist(), decoder_output.tolist() # 인코더 입력, 디코더 출력을 리스트 형태로 반환
+            decoder_input = dataset['summary'].apply(lambda x : self.bos_token + str(x)) # 디코더 입력은 'summary' 앞에 시작 토큰(bos_token)을 추가하여 생성
+            decoder_output = dataset['summary'].apply(lambda x : str(x) + self.eos_token) # 디코더 출력(레이블)은 'summary' 뒤에 종료 토큰(eos_token)을 추가하여 생성
+            return encoder_input.tolist(), decoder_input.tolist(), decoder_output.tolist() # 인코더 입력, 디코더 입력, 디코더 출력을 리스트 형태로 반환
+

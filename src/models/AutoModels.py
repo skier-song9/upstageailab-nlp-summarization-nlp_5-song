@@ -1,20 +1,16 @@
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM, AutoConfig
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoConfig, AutoModelForCausalLM
 
 # 학습을 위한 tokenizer와 사전 학습된 모델을 불러옵니다.
 def load_tokenizer_and_model_for_train(config, device):
     print('-'*10, 'Load tokenizer & model', '-'*10,)
     print('-'*10, f'Model Name : {config["general"]["model_name"]}', '-'*10,)
     model_name = config['general']['model_name']
-    
     model_config = AutoConfig.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-
     try:
-        generate_model = AutoModelForSeq2SeqLM.from_pretrained(model_name, config=model_config)
-    except ValueError:
-        generate_model = AutoModelForCausalLM.from_pretrained(model_name, config=model_config)
-
-
+        generate_model = AutoModelForSeq2SeqLM.from_pretrained(config['general']['model_name'],config=model_config)
+    except:
+        generate_model = AutoModelForCausalLM.from_pretrained(config['general']['model_name'],config=model_config)
     special_tokens_dict={'additional_special_tokens':config['tokenizer']['special_tokens']}
     tokenizer.add_special_tokens(special_tokens_dict)
 
@@ -30,11 +26,7 @@ def load_tokenizer_and_model_for_inference(config, device):
         config['inference']['ckt_dir']
     )
     try:
-        model = AutoModelForSeq2SeqLM.from_pretrained(
-            config['inference']['ckt_dir']
-        ).to(device)
-    except ValueError:
-        model = AutoModelForCausalLM.from_pretrained(
-            config['inference']['ckt_dir']
-        ).to(device)
-    return tokenizer, model
+        model = AutoModelForSeq2SeqLM.from_pretrained(config['inference']['ckt_dir'])
+    except:
+        model = AutoModelForCausalLM.from_pretrained(config['inference']['ckt_dir'])
+    return tokenizer, model.to(device)
