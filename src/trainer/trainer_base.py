@@ -133,7 +133,6 @@ def load_trainer_for_train(config, generate_model, tokenizer, train_dataset, val
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=val_dataset,
-        tokenizer=tokenizer,
         data_collator=data_collator,
         compute_metrics = lambda pred: compute_metrics(config, tokenizer, pred),
         callbacks = [EarlyStopCallback],
