@@ -40,7 +40,8 @@ training:
   early_stopping_threshold: 0.001
   eval_steps: 50
   evaluation_strategy: steps
-  fp16: true
+  fp16: false
+  bf16: true
   generation_max_length: 200
   gradient_accumulation_steps: 1
   gradient_checkpointing: true

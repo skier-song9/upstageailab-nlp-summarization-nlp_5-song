@@ -62,6 +62,7 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
         'per_device_train_batch_size': config['training']["per_device_train_batch_size"],
         'remove_unused_columns': config['training']["remove_unused_columns"],
         'fp16': config['training']["fp16"],
+        'bf16': config['training']["bf16"],
         'dataloader_drop_last': config['training']["dataloader_drop_last"],
         'group_by_length': config['training']["group_by_length"],
         
