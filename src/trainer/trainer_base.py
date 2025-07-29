@@ -47,37 +47,41 @@ def compute_metrics(config, tokenizer, pred):
 def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,val_inputs_dataset):
     print('-'*10, 'Make training arguments', '-'*10,)
 
+    training_args_dict = {
+        'seed': config['training']["seed"],
+        'output_dir': config['training']["output_dir"],
+        'overwrite_output_dir': config['training']["overwrite_output_dir"],
+
+        'save_total_limit': config['training']["save_total_limit"],
+        'load_best_model_at_end': config['training']["load_best_model_at_end"],
+        'save_steps': config['training']["save_steps"],
+
+        'logging_steps': config['training']["logging_steps"],
+
+        'num_train_epochs': config['training']["num_train_epochs"],
+        'per_device_train_batch_size': config['training']["per_device_train_batch_size"],
+        'remove_unused_columns': config['training']["remove_unused_columns"],
+        'fp16': config['training']["fp16"],
+        'dataloader_drop_last': config['training']["dataloader_drop_last"],
+        'group_by_length': config['training']["group_by_length"],
+        
+        'gradient_checkpointing': config['training']["gradient_checkpointing"],
+        'gradient_checkpointing_kwargs': config['training']["gradient_checkpointing_kwargs"],
+        'gradient_accumulation_steps': config['training']["gradient_accumulation_steps"],
+        'torch_empty_cache_steps': config['training']["torch_empty_cache_steps"],
+        'dataloader_num_workers': config['training']["dataloader_num_workers"],
+
+        'per_device_eval_batch_size': config['training']["per_device_eval_batch_size"],
+        'eval_strategy': config['training']["evaluation_strategy"],
+        'eval_steps': config['training']["eval_steps"],
+        
+        'predict_with_generate': config['training']["predict_with_generate"],
+        'generation_max_length': config['training']["generation_max_length"],
+        'report_to': config['training']['report_to'],
+    }
+
     training_args = Seq2SeqTrainingArguments(
-        seed=config['training']["seed"],
-        output_dir=config['training']["output_dir"],
-        overwrite_output_dir=config['training']["overwrite_output_dir"],
-
-        save_total_limit=config['training']["save_total_limit"],
-        load_best_model_at_end=config['training']["load_best_model_at_end"],
-        save_steps=config['training']["save_steps"],
-
-        logging_steps=config['training']["logging_steps"],
-
-        num_train_epochs=config['training']["num_train_epochs"],
-        per_device_train_batch_size=config['training']["per_device_train_batch_size"],
-        remove_unused_columns=config['training']["remove_unused_columns"],
-        fp16=config['training']["fp16"],
-        dataloader_drop_last=config['training']["dataloader_drop_last"],
-        group_by_length=config['training']["group_by_length"],
-        
-        gradient_checkpointing=config['training']["gradient_checkpointing"],
-        gradient_checkpointing_kwargs=config['training']["gradient_checkpointing_kwargs"],
-        gradient_accumulation_steps=config['training']["gradient_accumulation_steps"],
-        torch_empty_cache_steps=config['training']["torch_empty_cache_steps"],
-        dataloader_num_workers=config['training']["dataloader_num_workers"],
-
-        per_device_eval_batch_size=config['training']["per_device_eval_batch_size"],
-        eval_strategy=config['training']["evaluation_strategy"],
-        eval_steps=config['training']["eval_steps"],
-        
-        predict_with_generate=config['training']["predict_with_generate"],
-        generation_max_length=config['training']["generation_max_length"],
-        report_to=config['training']["report_to"],
+        **training_args_dict # 딕셔너리를 언팩하여 파라미터로 전달
     )
 
     # (선택) 모델의 학습 과정을 추적하는 wandb를 사용하기 위해 초기화 해줍니다.
