@@ -2,17 +2,17 @@ import gradio as gr
 import pandas as pd
 import os
 import re
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
 # --- Configuration ---
 # Assuming the script is run from the root of the project
-load_dotenv()
+# load_dotenv()
 PROJECT_DIR = "/mnt/c/SKH/ai_lab_13/projects/nlp-text-summarization/song"
 DATA_DIR = os.path.join(PROJECT_DIR, 'data')
 TRAIN_CSV = os.path.join(DATA_DIR, "train.csv")
 DEV_CSV = os.path.join(DATA_DIR, "dev.csv")
 TEST_CSV = os.path.join(DATA_DIR, "test.csv")
-UPSTAGE_API_KEY = os.getenv("UPSTAGE_API_KEY")
+# UPSTAGE_API_KEY = os.getenv("UPSTAGE_API_KEY")
 
 # --- Load Data ---
 try:
@@ -269,9 +269,9 @@ with gr.Blocks() as demo:
             outputs=[topic_select, train_topic_display, val_topic_display]
         )
     
-    with gr.Tab("Explore Submission file"):
-        
-        pass
+    # with gr.Tab("Explore Validation file"):
+
+    #     pass
 
 
 if __name__ == "__main__":
