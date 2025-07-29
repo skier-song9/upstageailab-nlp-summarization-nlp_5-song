@@ -5,7 +5,7 @@ def load_tokenizer_and_model_for_train(config, device):
     print('-'*10, 'Load tokenizer & model', '-'*10,)
     print('-'*10, f'Model Name : {config["general"]["model_name"]}', '-'*10,)
     model_name = config['general']['model_name']
-    model_config = AutoConfig().from_pretrained(model_name)
+    model_config = AutoConfig.from_pretrained(model_name)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     try:
         generate_model = AutoModelForSeq2SeqLM.from_pretrained(config['general']['model_name'],config=model_config)
