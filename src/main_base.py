@@ -27,7 +27,8 @@ sys.path.append(
 )
 from src.dataset.dataset_base import *
 from src.dataset.preprocess import *
-from src.models.BART import *
+# from src.models.BART import *
+from src.models.AutoModels import *
 from src.trainer.trainer_base import *
 from src.inference.inference import *
 
