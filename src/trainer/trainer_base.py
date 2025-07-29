@@ -81,11 +81,12 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
     )
 
     # (선택) 모델의 학습 과정을 추적하는 wandb를 사용하기 위해 초기화 해줍니다.
-    wandb.init(
-        entity=config['wandb']['entity'],
-        project=config['wandb']['project'],
-        name=config['wandb']['name'],
-    )
+    if config['training']['report_to'] in ['all','wandb']:
+        wandb.init(
+            entity=config['wandb']['entity'],
+            project=config['wandb']['project'],
+            name=config['wandb']['name'],
+        )
 
     # (선택) 모델 checkpoint를 wandb에 저장하도록 환경 변수를 설정합니다.
     os.environ["WANDB_LOG_MODEL"]="false" # wandb에 가장 validation 점수가 좋은 checkpoint만 업로드하여 storage 절약.
