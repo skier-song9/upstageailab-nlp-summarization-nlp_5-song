@@ -13,7 +13,7 @@ from rouge import Rouge # 모델의 성능을 평가하기 위한 라이브러�
 
 import wandb # 모델 학습 과정을 손쉽게 Tracking하고, 시각화할 수 있는 라이브러리입니다.
 
-project_dir = "/data/ephemeral/home/nlp-5/song"
+project_dir = "/data/ephemeral/home/nlp-5/base1p"
 
 import sys
 sys.path.append(
@@ -49,6 +49,9 @@ def main(config):
         # best 모델과 토크나이저 저장
         trainer.model.save_pretrained(config['inference']['ckt_dir'])
         tokenizer.save_pretrained(config['inference']['ckt_dir'])
+
+        # validation 후 val_inference.csv 파일 저장.
+        _ = inference(config, trainer.model, tokenizer, val_flag=True)
 
         # inference 후 submission 파일 저장.
         _ = inference(config, trainer.model, tokenizer)

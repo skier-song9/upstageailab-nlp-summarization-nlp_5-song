@@ -16,7 +16,7 @@ outputs/*
 !outputs/init.txt
 
 .env
-
+src/configs/*.yaml
 # src/configs/generate_config.ipynb
 ### <<< song gitignore <<<
 
