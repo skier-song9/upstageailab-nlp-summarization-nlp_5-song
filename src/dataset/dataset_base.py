@@ -97,7 +97,7 @@ def prepare_train_dataset(config, preprocessor, data_dir, tokenizer):
     :param AutoTokenizer tokenizer: tokenizer 객체
     :return torch.utils.data.Dataset: Custom Dataset for train, val
     """
-    train_file_path = os.path.join(data_dir,config['general']['train_data'])
+    train_file_path = os.path.join(data_dir,config['general'].get('train_data','train.csv'))
     val_file_path = os.path.join(data_dir,'dev.csv')
 
     # train, validation에 대해 각각 데이터프레임을 구축합니다.
