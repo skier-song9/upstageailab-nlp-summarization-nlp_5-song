@@ -6,6 +6,8 @@
 data/*.csv
 data/*.tar
 data/*.tar.gz
+data/*.zip
+data/*.json
 
 wandb/
 .wandb
@@ -17,7 +19,9 @@ outputs/*
 
 .env
 
+
 # src/configs/generate_config.ipynb
+src/configs/*.yaml
 ### <<< song gitignore <<<
 
 # Created by https://www.toptal.com/developers/gitignore/api/linux,python,venv,jupyternotebooks,macos,windows
