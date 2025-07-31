@@ -5,10 +5,10 @@ from transformers.optimization import get_cosine_with_hard_restarts_schedule_wit
 import wandb
 import os
 from rouge import Rouge # 모델의 성능을 평가하기 위한 라이브러리입니다.
-from transformers import AutoTokenizer
+# from transformers import AutoTokenizer
 
 # 모델 성능에 대한 평가 지표를 정의합니다. 본 대회에서는 ROUGE 점수를 통해 모델의 성능을 평가합니다.
-def compute_metrics(config, tokenizer, pred, eval_tokenizer=None):
+def compute_metrics(config, tokenizer, pred): #, eval_tokenizer=None):
     rouge = Rouge()
     predictions = pred.predictions
     labels = pred.label_ids
@@ -16,9 +16,9 @@ def compute_metrics(config, tokenizer, pred, eval_tokenizer=None):
     predictions[predictions == -100] = tokenizer.pad_token_id
     labels[labels == -100] = tokenizer.pad_token_id
 
-    if eval_tokenizer is not None:
-        decoded_preds = eval_tokenizer.batch_decode(predictions, clean_up_tokenization_spaces=True)
-        labels = eval_tokenizer.batch_decode(labels, clean_up_tokenization_spaces=True)
+    # if eval_tokenizer is not None:
+    #     decoded_preds = eval_tokenizer.batch_decode(predictions, clean_up_tokenization_spaces=True)
+    #     labels = eval_tokenizer.batch_decode(labels, clean_up_tokenization_spaces=True)
 
     decoded_preds = tokenizer.batch_decode(predictions, clean_up_tokenization_spaces=True)
     labels = tokenizer.batch_decode(labels, clean_up_tokenization_spaces=True)
@@ -118,11 +118,11 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
     )
 
     ### evaluation 용 tokenizer가 설정되어 있다면 해당 토크나이저로 validation 점수 계산
-    eval_tokenizer = None
-    if config['general'].get("eval_tokenizer", False) and len(config['general']['eval_tokenizer']) > 1:
-        eval_tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=config['general']['eval_tokenizer'])
-        special_tokens_dict={'additional_special_tokens':config['tokenizer']['special_tokens']}
-        eval_tokenizer.add_special_tokens(special_tokens_dict)
+    # eval_tokenizer = None
+    # if config['general'].get("eval_tokenizer", False) and len(config['general']['eval_tokenizer']) > 1:
+    #     eval_tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=config['general']['eval_tokenizer'])
+    #     special_tokens_dict={'additional_special_tokens':config['tokenizer']['special_tokens']}
+    #     eval_tokenizer.add_special_tokens(special_tokens_dict)
 
     # Trainer 클래스를 정의합니다.
     trainer = Seq2SeqTrainer(
@@ -130,7 +130,7 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
         args=training_args,
         train_dataset=train_inputs_dataset,
         eval_dataset=val_inputs_dataset,
-        compute_metrics = lambda pred: compute_metrics(config, tokenizer, pred, eval_tokenizer),
+        compute_metrics = lambda pred: compute_metrics(config, tokenizer, pred), #, eval_tokenizer),
         callbacks = [MyCallback],
         optimizers=(
             optimizer,
