@@ -125,7 +125,8 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
             get_cosine_with_hard_restarts_schedule_with_warmup(
                 optimizer,
                 num_warmup_steps=config['training']['warmup_steps'],
-                num_training_steps=len(train_inputs_dataset) * config['training']['num_train_epochs']
+                num_training_steps=len(train_inputs_dataset) * config['training']['num_train_epochs'],
+                num_cycles=config['training'].get("num_cycles", 1)
             )
         )
     )

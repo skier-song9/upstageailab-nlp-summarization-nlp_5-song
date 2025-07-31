@@ -15,7 +15,7 @@ from src.models.AutoModels import *
 # tokenization 과정까지 진행된 최종적으로 모델에 입력될 데이터를 출력합니다.
 def prepare_test_dataset(config, preprocessor, tokenizer):
 
-    test_file_path = os.path.join(config['general']['data_path'],'test.csv')
+    test_file_path = os.path.join(config['general']['data_path'],config['general'].get('test_data','test.csv'))
 
     test_data = preprocessor.make_set_as_df(test_file_path,is_train=False)
     test_id = test_data['fname']
