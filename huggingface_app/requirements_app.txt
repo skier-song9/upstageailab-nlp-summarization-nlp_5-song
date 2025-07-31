@@ -1,3 +1,7 @@
 gradio
 pandas
 openai
+transformers
+nltk
+torch
+sentencepiece
