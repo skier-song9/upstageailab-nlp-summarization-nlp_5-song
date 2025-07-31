@@ -48,7 +48,7 @@ def clean_text(text: str) -> str:
     text = re.sub(r"\n+", r"\n", text)
 
     # 중복 공백 제거
-    text = re.sub(r"\s+", r"\s", text)
+    text = re.sub(r"\s+", ' ', text)
 
     return text.strip()
 
