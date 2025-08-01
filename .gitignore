@@ -22,6 +22,8 @@ outputs/*
 
 # src/configs/generate_config.ipynb
 src/configs/*.yaml
+data/01_Interview
+data/02_Daily
 ### <<< song gitignore <<<
 
 # Created by https://www.toptal.com/developers/gitignore/api/linux,python,venv,jupyternotebooks,macos,windows
