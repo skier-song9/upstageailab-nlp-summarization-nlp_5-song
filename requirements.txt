@@ -38,3 +38,4 @@ evaluate
 matplotlib
 seaborn
 python-dotenv
+nltk
