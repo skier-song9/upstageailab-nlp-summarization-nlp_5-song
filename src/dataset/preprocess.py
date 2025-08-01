@@ -34,6 +34,9 @@ def clean_text(text: str) -> str:
     if not isinstance(text, str):
         return ""
     
+    ### Sepcial Token 처리 추가
+    
+    
     # 줄바꿈 표현 통일
     text = text.replace("\\n", "\n").replace("<br>", "\n").replace("</s>", "\n")
 
