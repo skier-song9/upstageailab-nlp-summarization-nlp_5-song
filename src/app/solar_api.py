@@ -7,6 +7,7 @@ from tqdm import tqdm
 import concurrent.futures
 import time
 import logging
+tqdm.pandas()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -81,7 +82,8 @@ def build_prompt(dialogue, type='summarization'):
             "1. Read the dialogue carefully.\n"
             "2. Focus on named entities in the dialogue.\n"
             "3. Topic must be at most 3 words.\n"
-            "4. Response in KOREAN with no prefix or suffix, only the topic.\n\n"
+            "4. Response in KOREAN with no prefix or suffix, only the topic.\n"
+            "5. But if topic is English in dialogue, remain English.\n\n"
             "Dialogue:\n"
             f"{dialogue}\n\n"
             "Topic:\n"
@@ -195,6 +197,17 @@ def process_row(row):
 
     return fname, summary, topic, ko2en, en2ko, re_summary, ner
 
+def process_topic(row):
+    idx, data = row
+    dialogue = data['dialogue']
+    fname = data['fname']
+    try:
+        topic = chat_solar(dialogue, type='topic') if dialogue else None
+    except Exception as e:
+        print(f"[{idx}] Error in topic: {e}")
+        topic = None
+    return fname, dialogue, topic
+
 def retranslate_all(df):
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -210,16 +223,72 @@ def retranslate_all(df):
     )
     return results_df
 
+import re
+def filter_solar(data):
+    """
+    주어진 텍스트 데이터에 대해 다음을 수행합니다:
+    1. \n\n 이후의 텍스트를 모두 제거합니다.
+    2. 괄호 표현 ((), [], {}, <>, #)을 제거합니다.
+
+    Args:
+        data (str): 필터링할 텍스트 데이터.
+
+    Returns:
+        str: 필터링된 텍스트 데이터.
+    """
+    # 1. \n\n 이후의 텍스트 제거
+    if not isinstance(data, str):
+        return ""
+    filtered_data = re.split(r'\n\n', data, 1)[0]
+
+    # 2. 괄호 표현 제거 ((), [], {}, <>, ** **)
+    # 괄호와 그 안의 내용을 제거하는 정규 표현식
+    # \((.*?)\): () 안의 내용 제거
+    # \[.*?\]: [] 안의 내용 제거
+    # \{.*?\}: {} 안의 내용 제거
+    # \<.*?\>: <> 안의 내용 제거
+    # \*\*.*?\*\*: ** 안의 내용 제거
+    # \*.*?\*: * 안의 내용 제거
+    filtered_data = re.sub(r'\([^)]*\)|\[[^\]]*\]|\{[^}]*\}|\<[^>]*\>|\*\*.*?\*\*|\*.*?\*', '', filtered_data)
+    return filtered_data.strip() # 공백 제거
+
+def filter_topic(data):
+    if not isinstance(data, str):
+        return ""
+    filtered_data = re.split(r'\n', data, 1)[0]
+    return filtered_data
+
+def extract_topic_all(df):
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        futures = [executor.submit(process_topic, row) for row in df.iterrows()]
+        for future in tqdm(concurrent.futures.as_completed(futures), total=len(df)):
+            try:
+                results.append(future.result())
+            except Exception as e:
+                print(f"Error in processing row: {e}")
+
+    results_df = pd.DataFrame(
+        results, columns=['fname', 'dialogue', 'topic']
+    )
+    results_df['topic'] = results_df['topic'].apply(filter_topic)
+    return results_df
+
 if __name__ == '__main__':
     train_df = pd.read_csv(TRAIN_CSV)
     val_df = pd.read_csv(DEV_CSV)
+    test_df = pd.read_csv(os.path.join(DATA_DIR, "test.csv"))
 
-    print("Processing train_df...")
-    train_results = retranslate_all(train_df)
-    train_results.to_csv(os.path.join(DATA_DIR, "train_solar_results.csv"), index=False)
-    print("Train results saved to data/train_solar_results.csv")
+    # print("Processing train_df...")
+    # train_results = retranslate_all(train_df)
+    # train_results.to_csv(os.path.join(DATA_DIR, "train_solar_results.csv"), index=False)
+    # print("Train results saved to data/train_solar_results.csv")
 
-    print("Processing val_df...")
-    val_results = retranslate_all(val_df)
-    val_results.to_csv(os.path.join(DATA_DIR, "val_solar_results.csv"), index=False)
-    print("Validation results saved to data/val_solar_results.csv")
+    # print("Processing val_df...")
+    # val_results = retranslate_all(val_df)
+    # val_results.to_csv(os.path.join(DATA_DIR, "val_solar_results.csv"), index=False)
+    # print("Validation results saved to data/val_solar_results.csv")
+
+    test_results = extract_topic_all(test_df)
+    test_results.to_csv(os.path.join(DATA_DIR, "test_topic_solar.csv"), index=False)
+    print("Validation results saved to data/test_solar_results.csv")
