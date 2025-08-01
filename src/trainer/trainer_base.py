@@ -5,15 +5,20 @@ from transformers.optimization import get_cosine_with_hard_restarts_schedule_wit
 import wandb
 import os
 from rouge import Rouge # 모델의 성능을 평가하기 위한 라이브러리입니다.
+# from transformers import AutoTokenizer
 
 # 모델 성능에 대한 평가 지표를 정의합니다. 본 대회에서는 ROUGE 점수를 통해 모델의 성능을 평가합니다.
-def compute_metrics(config, tokenizer, pred):
+def compute_metrics(config, tokenizer, pred): #, eval_tokenizer=None):
     rouge = Rouge()
     predictions = pred.predictions
     labels = pred.label_ids
 
     predictions[predictions == -100] = tokenizer.pad_token_id
     labels[labels == -100] = tokenizer.pad_token_id
+
+    # if eval_tokenizer is not None:
+    #     decoded_preds = eval_tokenizer.batch_decode(predictions, clean_up_tokenization_spaces=True)
+    #     labels = eval_tokenizer.batch_decode(labels, clean_up_tokenization_spaces=True)
 
     decoded_preds = tokenizer.batch_decode(predictions, clean_up_tokenization_spaces=True)
     labels = tokenizer.batch_decode(labels, clean_up_tokenization_spaces=True)
@@ -112,20 +117,28 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
         amsgrad=False
     )
 
+    ### evaluation 용 tokenizer가 설정되어 있다면 해당 토크나이저로 validation 점수 계산
+    # eval_tokenizer = None
+    # if config['general'].get("eval_tokenizer", False) and len(config['general']['eval_tokenizer']) > 1:
+    #     eval_tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=config['general']['eval_tokenizer'])
+    #     special_tokens_dict={'additional_special_tokens':config['tokenizer']['special_tokens']}
+    #     eval_tokenizer.add_special_tokens(special_tokens_dict)
+
     # Trainer 클래스를 정의합니다.
     trainer = Seq2SeqTrainer(
         model=generate_model, # 사용자가 사전 학습하기 위해 사용할 모델을 입력합니다.
         args=training_args,
         train_dataset=train_inputs_dataset,
         eval_dataset=val_inputs_dataset,
-        compute_metrics = lambda pred: compute_metrics(config, tokenizer, pred),
+        compute_metrics = lambda pred: compute_metrics(config, tokenizer, pred), #, eval_tokenizer),
         callbacks = [MyCallback],
         optimizers=(
             optimizer,
             get_cosine_with_hard_restarts_schedule_with_warmup(
                 optimizer,
                 num_warmup_steps=config['training']['warmup_steps'],
-                num_training_steps=len(train_inputs_dataset) * config['training']['num_train_epochs']
+                num_training_steps=len(train_inputs_dataset) * config['training']['num_train_epochs'],
+                num_cycles=config['training'].get("num_cycles", 1)
             )
         )
     )

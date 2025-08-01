@@ -50,6 +50,9 @@ def main(config):
         trainer.model.save_pretrained(config['inference']['ckt_dir'])
         tokenizer.save_pretrained(config['inference']['ckt_dir'])
 
+        # validation 후 val_inference.csv 파일 저장.
+        _ = inference(config, trainer.model, tokenizer, val_flag=True)
+
         # inference 후 submission 파일 저장.
         _ = inference(config, trainer.model, tokenizer)
     finally:
