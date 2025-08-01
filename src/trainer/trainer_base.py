@@ -5,47 +5,58 @@ from transformers.optimization import get_cosine_with_hard_restarts_schedule_wit
 import wandb
 import os
 from rouge import Rouge # 모델의 성능을 평가하기 위한 라이브러리입니다.
-# from transformers import AutoTokenizer
+import numpy as np
+from transformers import AutoTokenizer
+from rouge_score import rouge_scorer
+import re
 
-# 모델 성능에 대한 평가 지표를 정의합니다. 본 대회에서는 ROUGE 점수를 통해 모델의 성능을 평가합니다.
-def compute_metrics(config, tokenizer, pred): #, eval_tokenizer=None):
-    rouge = Rouge()
-    predictions = pred.predictions
-    labels = pred.label_ids
-
-    predictions[predictions == -100] = tokenizer.pad_token_id
-    labels[labels == -100] = tokenizer.pad_token_id
-
-    # if eval_tokenizer is not None:
-    #     decoded_preds = eval_tokenizer.batch_decode(predictions, clean_up_tokenization_spaces=True)
-    #     labels = eval_tokenizer.batch_decode(labels, clean_up_tokenization_spaces=True)
-
-    decoded_preds = tokenizer.batch_decode(predictions, clean_up_tokenization_spaces=True)
-    labels = tokenizer.batch_decode(labels, clean_up_tokenization_spaces=True)
-
-    # 정확한 평가를 위해 미리 정의된 불필요한 생성토큰들을 제거합니다.
-    replaced_predictions = decoded_preds.copy()
-    replaced_labels = labels.copy()
-    remove_tokens = config['inference']['remove_tokens']
+def remove_origin_special_tokens(decoded_preds, decoded_labels, remove_tokens):
+    replaced_predictions = list(decoded_preds)
+    replaced_labels = list(decoded_labels)
     for token in remove_tokens:
-        replaced_predictions = [sentence.replace(token," ") for sentence in replaced_predictions]
-        replaced_labels = [sentence.replace(token," ") for sentence in replaced_labels]
+        replaced_predictions = [sentence.replace(token, " ") for sentence in replaced_predictions]
+        replaced_labels = [sentence.replace(token, " ") for sentence in replaced_labels]
+    replaced_predictions = [re.sub(r'\s+', ' ', sentence) for sentence in replaced_predictions]
+    replaced_labels = [re.sub(r'\s+', ' ', sentence)  for sentence in replaced_labels]  
+    return replaced_predictions, replaced_labels      
 
-    print('-'*150)
-    print(f"PRED: {replaced_predictions[0]}")
-    print(f"GOLD: {replaced_labels[0]}")
-    print('-'*150)
-    print(f"PRED: {replaced_predictions[1]}")
-    print(f"GOLD: {replaced_labels[1]}")
-    print('-'*150)
-    print(f"PRED: {replaced_predictions[2]}")
-    print(f"GOLD: {replaced_labels[2]}")
+def compute_metrics(pred, config, tokenizer:AutoTokenizer, eval_tokenizer:AutoTokenizer=None):
+    preds, labels = pred
+    if isinstance(preds, tuple):
+        preds = preds[0]
+    
+    # 생성된 summary를 decode
+    labels = np.where(labels != -100, labels, tokenizer.pad_token_id) # id가 -100인 input_ids는 padding 토큰으로 변환
+    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=False)
+    # preds.argmax(-1) : 모델의 예측 결과에서 가장 확률이 높은 토큰 ID를 선택
+    # skip_special_tokens=False : 현재 task에서는 special token이 summary에 포함되어야 하기 때문에 False로 설정. True면 디코딩 과정에서 special token을 제거함.
+    decoded_preds = tokenizer.batch_decode(preds.argmax(-1), skip_special_tokens=False)
 
-    # 최종적인 ROUGE 점수를 계산합니다.
-    results = rouge.get_scores(replaced_predictions, replaced_labels,avg=True)
+    # 앞에서 skip_special_tokens=False 했기 때문에 따로 저장해둔 remove_tokens를 제거해야 한다.
+    # 수동으로 정의된 제거 토큰들을 디코딩된 문자열에서 제거합니다.
+    replaced_predictions, replaced_labels = remove_origin_special_tokens(decoded_preds, decoded_labels, config['inference']['remove_tokens'])
 
-    # ROUGE 점수 중 F-1 score를 통해 평가합니다.
-    result = {key: value["f"] for key, value in results.items()}
+    # eval_tokenizer가 있을 경우, 해당 토크나이저로 텍스트를 재처리하여 ROUGE를 계산합니다.
+    if eval_tokenizer is None:
+        # 디코딩된 문자열을 다시 토큰화하고 공백으로 재결합.
+        #    이는 ROUGE 계산 시 토큰 경계를 명확히 하기 위함.
+        retokenized_preds = [" ".join(tokenizer.tokenize(sentence)) for sentence in replaced_predictions]
+        retokenized_labels = [" ".join(tokenizer.tokenize(sentence)) for sentence in replaced_labels]
+    else: # eval_tokenizer로 다시 토큰화하고 공백으로 재결합
+        retokenized_preds = [" ".join(eval_tokenizer.tokenize(sentence)) for sentence in replaced_predictions]
+        retokenized_labels = [" ".join(eval_tokenizer.tokenize(sentence)) for sentence in replaced_labels]
+
+    # 토큰 기준 Rouge 점수 계산.
+    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=False) # 한국어 특성 상 stemmer 사용 안 함.
+    scores = [scorer.score(label, pred) for label, pred in zip(retokenized_labels, retokenized_preds)]
+    
+    # 평균 f-점수를 계산하고 반환합니다.
+    avg_scores = {}
+    for key in ['rouge1', 'rouge2', 'rougeL']:
+        avg_scores[key] = np.mean([s[key].fmeasure for s in scores])
+    
+    result = {key.replace('rouge', 'rouge-'): value for key, value in avg_scores.items()}
+    result['rouge-mean'] = np.mean(list(result.values()))
     return result
 
 # 학습을 위한 trainer 클래스와 매개변수를 정의합니다.
@@ -118,11 +129,12 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
     )
 
     ### evaluation 용 tokenizer가 설정되어 있다면 해당 토크나이저로 validation 점수 계산
-    # eval_tokenizer = None
-    # if config['general'].get("eval_tokenizer", False) and len(config['general']['eval_tokenizer']) > 1:
-    #     eval_tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=config['general']['eval_tokenizer'])
-    #     special_tokens_dict={'additional_special_tokens':config['tokenizer']['special_tokens']}
-    #     eval_tokenizer.add_special_tokens(special_tokens_dict)
+    eval_tokenizer = None
+    if config['general'].get("eval_tokenizer", False) and len(config['general']['eval_tokenizer']) > 1:
+        eval_tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=config['general']['eval_tokenizer'])
+        eval_tokenizer.remove_tokens = list(eval_tokenizer.special_tokens_map.values())
+        special_tokens_dict={'additional_special_tokens':config['tokenizer']['special_tokens']}
+        eval_tokenizer.add_special_tokens(special_tokens_dict)
 
     # Trainer 클래스를 정의합니다.
     trainer = Seq2SeqTrainer(
@@ -130,7 +142,7 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
         args=training_args,
         train_dataset=train_inputs_dataset,
         eval_dataset=val_inputs_dataset,
-        compute_metrics = lambda pred: compute_metrics(config, tokenizer, pred), #, eval_tokenizer),
+        compute_metrics = lambda pred: compute_metrics(config, tokenizer, pred, eval_tokenizer),
         callbacks = [MyCallback],
         optimizers=(
             optimizer,

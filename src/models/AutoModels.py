@@ -36,4 +36,4 @@ def load_tokenizer_and_model_for_inference(config, device):
         model = AutoModelForSeq2SeqLM.from_pretrained(config['inference']['ckt_dir'])
     except:
         model = AutoModelForCausalLM.from_pretrained(config['inference']['ckt_dir'])
-    return tokenizer, model.to(device)
+    return model.to(device), tokenizer

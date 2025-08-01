@@ -2,91 +2,52 @@ import os
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
-import sys
-sys.path.append(
-    "/data/ephemeral/home/nlp-5/song/"
-)
-from src.dataset.dataset_base import *
-from src.dataset.preprocess import *
-# from src.models.BART import *
-from src.models.AutoModels import *
-
-# tokenization 과정까지 진행된 최종적으로 모델에 입력될 데이터를 출력합니다.
-def prepare_test_dataset(config, preprocessor, tokenizer, val_flag=False):
-
-    if val_flag:
-        test_file_path = os.path.join(config['general']['data_path'],'dev.csv')
-    else:
-        test_file_path = os.path.join(config['general']['data_path'],'test.csv')
-
-    test_data = preprocessor.make_set_as_df(test_file_path,is_train=False)
-    test_id = test_data['fname']
-
-    print('-'*150)
-    print(f'test_data:\n{test_data["dialogue"][0]}')
-    print('-'*150)
-
-    encoder_input_test , decoder_input_test = preprocessor.make_input(test_data,is_test=True)
-    print('-'*10, 'Load data complete', '-'*10,)
-
-    test_tokenized_encoder_inputs = tokenizer(encoder_input_test, return_tensors="pt", padding=True,
-                    add_special_tokens=True, truncation=True, max_length=config['tokenizer']['encoder_max_len'], return_token_type_ids=False,)
-    test_tokenized_decoder_inputs = tokenizer(decoder_input_test, return_tensors="pt", padding=True,
-                    add_special_tokens=True, truncation=True, max_length=config['tokenizer']['decoder_max_len'], return_token_type_ids=False,)
-
-    test_encoder_inputs_dataset = DatasetForInference(test_tokenized_encoder_inputs, test_id, len(encoder_input_test))
-    print('-'*10, 'Make dataset complete', '-'*10,)
-
-    return test_data, test_encoder_inputs_dataset
-
+import pandas as pd
+import re
 
 # 학습된 모델이 생성한 요약문의 출력 결과를 보여줍니다.
-def inference(config, generate_model, tokenizer, val_flag=False):
+def inference(config, generate_model, tokenizer, test_df, summ_test_dataset, val_flag=False):
     device = torch.device('cuda:0' if torch.cuda.is_available()  else 'cpu')
     print('-'*10, f'device : {device}', '-'*10,)
     print(torch.__version__)
 
     # generate_model , tokenizer = load_tokenizer_and_model_for_test(config,device)
+    dataloader = DataLoader(summ_test_dataset, batch_size=config['inference']['batch_size'], shuffle=False)
 
-    data_path = config['general']['data_path']
-    preprocessor = Preprocess(config['tokenizer']['bos_token'], config['tokenizer']['eos_token'])
-
-    test_data, test_encoder_inputs_dataset = prepare_test_dataset(config,preprocessor, tokenizer, val_flag)
-    dataloader = DataLoader(test_encoder_inputs_dataset, batch_size=config['inference']['batch_size'])
-
-    summary = []
+    all_summary = []
     text_ids = []
     generate_model.eval()
     generate_model.gradient_checkpointing_disable()
-    with torch.no_grad():
-        for item in tqdm(dataloader):
+    for item in tqdm(dataloader):
+        with torch.no_grad():
             text_ids.extend(item['ID'])
-            generated_ids = generate_model.generate(input_ids=item['input_ids'].to(device),
-                            no_repeat_ngram_size=config['inference']['no_repeat_ngram_size'],
-                            early_stopping=config['inference']['early_stopping'],
-                            max_length=config['inference']['generate_max_length'],
-                            num_beams=config['inference']['num_beams'],
-                        )
-            for ids in generated_ids:
-                result = tokenizer.decode(ids)
-                summary.append(result)
+            generated_ids = generate_model.generate(
+                input_ids=item['input_ids'].to(device), # Encoder Input
+                decoder_start_token_id=tokenizer.bos_token_id, # Decoder Begin Token ID
+                no_repeat_ngram_size=config['inference']['no_repeat_ngram_size'], # 생성된 문장에서 특정 크기의 N-gram이 반복되지 않도록 설정합니다.
+                early_stopping=config['inference']['early_stopping'], # True로 설정하면 모든 빔이 eos_token에 도달했을 때 생성을 조기 종료
+                max_length=config['inference']['generate_max_length'], # 디코더가 생성할 최대 출력 시퀀스 길이(=토큰 개수)
+                num_beams=config['inference']['num_beams'], # 더 나은 문장을 탐색하기 위해 빔 서치(Beam Search)에서 유지할 빔의 개수
+            )
+            decoded_ids = tokenizer.batch_decode(generated_ids, skip_special_tokens=False)
+            # skip_special_tokens=False : 현재 task에서는 special token이 summary에 포함되어야 하기 때문에 False로 설정. True면 디코딩 과정에서 special token을 제거함.
+            all_summary.extend(decoded_ids)
 
     # 정확한 평가를 위하여 노이즈에 해당되는 스페셜 토큰을 제거합니다.
-    remove_tokens = config['inference']['remove_tokens']
-    preprocessed_summary = summary.copy()
-    for token in remove_tokens:
-        preprocessed_summary = [sentence.replace(token," ") for sentence in preprocessed_summary]
+    preprocessed_summary = all_summary
+    for remove_token in config['inference']['remove_tokens']:
+        preprocessed_summary = [sentence.replace(remove_token, " ") for sentence in preprocessed_summary]
+    preprocessed_summary = [re.sub(r'\s+', ' ', sentence) for sentence in preprocessed_summary]
 
     output = pd.DataFrame(
         {
-            "fname": test_data['fname'],
+            "fname": test_df['fname'],
             "summary" : preprocessed_summary,
         }
     )
 
     if val_flag:
-        val_file_path = os.path.join(config['general']['data_path'],'dev.csv')
+        val_file_path = os.path.join(config['general']['data_path']['val_data'])
         # merge with val_df
         val_df = pd.read_csv(val_file_path)
         output = output.merge(val_df[['fname','dialogue','topic']], on='fname')

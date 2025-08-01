@@ -28,6 +28,7 @@ from src.inference.inference import *
 
 def main(config):
     try:
+        pl.seed_everything(seed=config['general']['training']['seed'], workers=False) # workers : worker 프로세스 시드는 고정하지 않음  > 과적합 방지.
         # 사용할 device를 정의합니다.
         device = torch.device('cuda:0' if torch.cuda.is_available()  else 'cpu')
         print('-'*10, f'device : {device}', '-'*10,)
@@ -38,23 +39,58 @@ def main(config):
         print('-'*10,"tokenizer special tokens : ",tokenizer.special_tokens_map,'-'*10)
 
         # 학습에 사용할 데이터셋을 불러옵니다.
-        preprocessor = Preprocess(config['tokenizer']['bos_token'], config['tokenizer']['eos_token']) # decoder_start_token: str, eos_token: str
-        data_path = config['general']['data_path']
-        train_inputs_dataset, val_inputs_dataset = prepare_train_dataset(config,preprocessor, data_path, tokenizer)
+        summ_train_dataset, summ_val_dataset = prepare_train_dataset(
+            tokenizer=tokenizer,
+            config=config
+        )
 
         # Trainer 클래스를 불러옵니다.
-        trainer = load_trainer_for_train(config, generate_model,tokenizer,train_inputs_dataset,val_inputs_dataset)
+        trainer = load_trainer_for_train(
+            config=config,
+            generate_model=generate_model,
+            tokenizer=tokenizer,
+            train_inputs_dataset=summ_train_dataset,
+            val_inputs_dataset=summ_val_dataset
+        )
+        print()
+        print("--- Start train ---")
         trainer.train()   # 모델 학습을 시작합니다.
+        print("--- Finish train ---")
+        print()
 
         # best 모델과 토크나이저 저장
         trainer.model.save_pretrained(config['inference']['ckt_dir'])
         tokenizer.save_pretrained(config['inference']['ckt_dir'])
 
         # validation 후 val_inference.csv 파일 저장.
-        _ = inference(config, trainer.model, tokenizer, val_flag=True)
+        val_infer_df, summ_val_infer_dataset = prepare_test_dataset(
+            config=config,
+            tokenizer=tokenizer,
+            val_flag=True
+        )
+        _ = inference(
+            config=config,
+            generate_model=trainer.model,
+            tokenizer=tokenizer,
+            test_df=val_infer_df,
+            summ_test_dataset=summ_val_infer_dataset,
+            val_flag=True
+        )
 
         # inference 후 submission 파일 저장.
-        _ = inference(config, trainer.model, tokenizer)
+        test_df, summ_test_dataset = prepare_test_dataset(
+            config=config,
+            tokenizer=tokenizer,
+            val_flag=False
+        )
+        _ = inference(
+            config=config,
+            generate_model=trainer.model,
+            tokenizer=tokenizer,
+            test_df=test_df,
+            summ_test_dataset=summ_test_dataset,
+            val_flag=False
+        )
     finally:
         # (선택) 모델 학습이 완료된 후 wandb를 종료합니다.
         wandb.finish()
@@ -90,6 +126,18 @@ if __name__ == "__main__":
         main(loaded_config)
     else:
         device = "cuda:0" if torch.cuda.is_available else "cpu"
-        tokenizer, generate_model = load_tokenizer_and_model_for_inference(loaded_config, device)
-        inference(loaded_config, generate_model, tokenizer)
+        generate_model, tokenizer = load_tokenizer_and_model_for_inference(loaded_config, device)
+        test_df, summ_test_dataset = prepare_test_dataset(
+            config=loaded_config,
+            tokenizer=tokenizer,
+            val_flag=False
+        )
+        _ = inference(
+            config=loaded_config,
+            generate_model=generate_model,
+            tokenizer=tokenizer,
+            test_df=test_df,
+            summ_test_dataset=summ_test_dataset,
+            val_flag=False
+        )
 

@@ -1,185 +1,135 @@
 import os
 from torch.utils.data import Dataset
+import torch
+import pandas as pd
+from typing import Dict
+from transformers import AutoTokenizer
 
-# Train에 사용되는 Dataset 클래스를 정의합니다.
-class DatasetForTrain(Dataset):
-    # 클래스 초기화 메서드
-    def __init__(self, encoder_input, decoder_input, labels, len):
-        self.encoder_input = encoder_input # 토큰화된 인코더 입력을 인스턴스 변수에 저장
-        self.decoder_input = decoder_input # 토큰화된 디코더 입력을 인스턴스 변수에 저장
-        self.labels = labels # 토큰화된 레이블(디코더 출력)을 인스턴스 변수에 저장
-        self.len = len # 데이터셋의 길이를 인스턴스 변수에 저장
+class SummDataset(Dataset):
+    """pd.DataFrame을 torch.utils.data.Dataset으로 변환하는 클래스"""
+    def __init__(self, tokenized_data, tokenizer, config):
+        """
+        :param Dict tokenized_data: tokenizer.tokenize가 완료된 딕셔너리 데이터.
+        :param transformers.AutoTokenizer tokenizer: tokenizer
+        :param Dict config: 혹시 모를 추가 기능에 대비한 config 인자.
+        """
+        self.tokenized_data = tokenized_data
+        self.tokenizer = tokenizer
+        self.config = config
+    def __getitem__(self, index):
+        input_ids = torch.tensor(self.tokenized_data['input_ids'][index])
 
-    # 특정 인덱스(idx)의 데이터를 가져오는 메서드
-    def __getitem__(self, idx):
-        # 인코더 입력에서 해당 인덱스의 데이터를 복사하여 item 딕셔너리 생성
-        item = {key: val[idx].clone().detach() for key, val in self.encoder_input.items()} # item은 'input_ids'와 'attention_mask'를 키로 가짐
-        # 디코더 입력에서 해당 인덱스의 데이터를 복사하여 item2 딕셔너리 생성
-        item2 = {key: val[idx].clone().detach() for key, val in self.decoder_input.items()} # item2는 'input_ids'와 'attention_mask'를 키로 가짐
-        # 모델의 디코더 입력 키 이름('decoder_input_ids')에 맞게 'input_ids'를 변경
-        item2['decoder_input_ids'] = item2['input_ids']
-        # 모델의 디코더 어텐션 마스크 키 이름('decoder_attention_mask')에 맞게 'attention_mask'를 변경
-        item2['decoder_attention_mask'] = item2['attention_mask']
-        # 기존의 'input_ids' 키를 item2에서 제거
-        item2.pop('input_ids')
-        # 기존의 'attention_mask' 키를 item2에서 제거
-        item2.pop('attention_mask')
-        # item 딕셔너리에 item2 딕셔너리의 내용을 추가
-        item.update(item2) # 이제 item은 'input_ids', 'attention_mask', 'decoder_input_ids', 'decoder_attention_mask'를 키로 가짐
-        # 최종적으로 'labels' 키에 해당 인덱스의 레이블(토큰화된 디코더 출력)을 추가
-        item['labels'] = self.labels['input_ids'][idx] # 이제 item은 'input_ids', 'attention_mask', 'decoder_input_ids', 'decoder_attention_mask', 'labels'를 키로 가짐
-        return item # 모델의 입력으로 사용될 딕셔너리 반환
+        # 추론용 데이터셋인 경우 {"input_ids":[[tokens]...], "labels": None} 임.
+        labels = self.tokenized_data['labels']
+        if labels is not None:
+            labels = torch.tensor(labels[index])
 
-    # 데이터셋의 전체 길이를 반환하는 메서드
+        # attention_mask를 생성
+        attention_mask = input_ids.ne(self.tokenizer.pad_token_id)
+        return dict(input_ids=input_ids, labels=labels, attention_mask=attention_mask)
     def __len__(self):
-        return self.len # __init__에서 저장한 길이 반환
+        return len(self.tokenized_data['input_ids'])
 
-# Validation에 사용되는 Dataset 클래스를 정의합니다.
-class DatasetForVal(Dataset):
-    # 클래스 초기화 메서드
-    def __init__(self, encoder_input, decoder_input, labels, len):
-        self.encoder_input = encoder_input # 토큰화된 인코더 입력을 인스턴스 변수에 저장
-        self.decoder_input = decoder_input # 토큰화된 디코더 입력을 인스턴스 변수에 저장
-        self.labels = labels # 토큰화된 레이블(디코더 출력)을 인스턴스 변수에 저장
-        self.len = len # 데이터셋의 길이를 인스턴스 변수에 저장
+def tokenize_data(df:pd.DataFrame, tokenizer:AutoTokenizer, config:Dict, test:bool=False):
+    """pd.DataFrame에서 dialogue와 summary를 토큰화하는 함수
 
-    # 특정 인덱스(idx)의 데이터를 가져오는 메서드
-    def __getitem__(self, idx):
-        # 인코더 입력에서 해당 인덱스의 데이터를 복사하여 item 딕셔너리 생성
-        item = {key: val[idx].clone().detach() for key, val in self.encoder_input.items()} # item은 'input_ids'와 'attention_mask'를 키로 가짐
-        # 디코더 입력에서 해당 인덱스의 데이터를 복사하여 item2 딕셔너리 생성
-        item2 = {key: val[idx].clone().detach() for key, val in self.decoder_input.items()} # item2는 'input_ids'와 'attention_mask'를 키로 가짐
-        # 모델의 디코더 입력 키 이름('decoder_input_ids')에 맞게 'input_ids'를 변경
-        item2['decoder_input_ids'] = item2['input_ids']
-        # 모델의 디코더 어텐션 마스크 키 이름('decoder_attention_mask')에 맞게 'attention_mask'를 변경
-        item2['decoder_attention_mask'] = item2['attention_mask']
-        # 기존의 'input_ids' 키를 item2에서 제거
-        item2.pop('input_ids')
-        # 기존의 'attention_mask' 키를 item2에서 제거
-        item2.pop('attention_mask')
-        # item 딕셔너리에 item2 딕셔너리의 내용을 추가
-        item.update(item2) # 이제 item은 'input_ids', 'attention_mask', 'decoder_input_ids', 'decoder_attention_mask'를 키로 가짐
-        # 최종적으로 'labels' 키에 해당 인덱스의 레이블(토큰화된 디코더 출력)을 추가
-        item['labels'] = self.labels['input_ids'][idx] # 이제 item은 'input_ids', 'attention_mask', 'decoder_input_ids', 'decoder_attention_mask', 'labels'를 키로 가짐
-        return item # 모델의 입력으로 사용될 딕셔너리 반환
-
-    # 데이터셋의 전체 길이를 반환하는 메서드
-    def __len__(self):
-        return self.len # __init__에서 저장한 길이 반환
-
-# Test에 사용되는 Dataset 클래스를 정의합니다.
-class DatasetForInference(Dataset):
-    # 클래스 초기화 메서드
-    def __init__(self, encoder_input, test_id, len):
-        self.encoder_input = encoder_input # 토큰화된 인코더 입력을 인스턴스 변수에 저장
-        self.test_id = test_id # 테스트 데이터의 ID를 인스턴스 변수에 저장
-        self.len = len # 데이터셋의 길이를 인스턴스 변수에 저장
-
-    # 특정 인덱스(idx)의 데이터를 가져오는 메서드
-    def __getitem__(self, idx):
-        # 인코더 입력에서 해당 인덱스의 데이터를 복사하여 item 딕셔너리 생성
-        item = {key: val[idx].clone().detach() for key, val in self.encoder_input.items()}
-        # item 딕셔너리에 'ID' 키와 해당 인덱스의 테스트 ID 값을 추가
-        item['ID'] = self.test_id[idx]
-        return item # 모델의 입력 및 ID를 포함하는 딕셔너리 반환
-
-    # 데이터셋의 전체 길이를 반환하는 메서드
-    def __len__(self):
-        return self.len # __init__에서 저장한 길이 반환
-
-# tokenization 과정까지 진행된 최종적으로 모델에 입력될 데이터를 출력합니다.
-def prepare_train_dataset(config, preprocessor, data_dir, tokenizer):
-    """_summary_
-
-    :param dictionary config: 각종 설정 딕셔너리
-    :param Preprocess preprocessor: Preprocess 객체
-    :param str data_dir: data 디렉토리 경로
-    :param AutoTokenizer tokenizer: tokenizer 객체
-    :return torch.utils.data.Dataset: Custom Dataset for train, val
+    :param pd.DataFrame df: train, dev, test csv
+    :param transformers.AutoTokenizer tokenizer: tokenizer
+    :param Dict config: _description_
+    :param bool test: True이면 summary를 토큰화하지 않는다.
+    :return _type_: _description_
     """
-    train_file_path = os.path.join(data_dir,config['general'].get('train_data','train.csv'))
-    val_file_path = os.path.join(data_dir,'dev.csv')
+    dialogues = df['dialogue']
+    # tokenize dialogue
+    tokenized_dialogues = [
+        tokenizer(
+            dialogue,
+            padding='max_length',
+            truncation=True,
+            max_length=config['tokenizer']['encoder_max_len'],
+            add_special_tokens=True
+        )['input_ids'] for dialogue in dialogues.values
+    ]
+    
+    # summary 처리 
+    # test의 경우 summary가 없으니, None으로 출력.
+    # train의 경우 summary가 있으니, summary를 토큰화하여 labels를 채운다. 
+    tokenized_summaries = None
+    if not test:
+        summaries = df['summary']
+        tokenized_summaries = [
+            tokenizer(
+                summary,
+                padding='max_length',
+                truncation=True,
+                max_length=config['tokenizer']['decoder_max_len'],
+                add_special_tokens=True
+            )['input_ids'] for summary in summaries.values
+        ]
+        # 패딩된 부분을 -100으로 치환하여 학습에서 제외합니다.
+        tokenized_summaries = [[-100 if token == tokenizer.pad_token_id else token for token in summary] for summary in tokenized_summaries]
 
-    # train, validation에 대해 각각 데이터프레임을 구축합니다.
-    train_data = preprocessor.make_set_as_df(train_file_path, config)
-    val_data = preprocessor.make_set_as_df(val_file_path, config)
+    out = {'input_ids': tokenized_dialogues, 'labels': tokenized_summaries}
+    print("="*15, "데이터 개수" ,"="*15)
+    print("tokenizing 된 데이터 형태 예시")
+    print(tokenizer.convert_ids_to_tokens(tokenized_dialogues[-1]))
+    print("label의 형태 예시")
+    print(tokenized_summaries[-1])
+    print("="*15, "데이터 개수" ,"="*15)
+    return out
+    
+def prepare_train_dataset(tokenizer, config):
+    """train, val, test SummDataset을 준비
+
+    :param transformers.AutoTokenizer tokenizer: tokenizer
+    :param Dict config: _description_
+    :return _type_: _description_
+    """
+    # load data
+    train_df = pd.read_csv(os.path.join(config['general']['data_path'], config['general']['train_data']))
+    val_df = pd.read_csv(os.path.join(config['general']['data_path']['val_data']))
+    test_df = pd.read_csv(os.path.join(config['general']['data_path'], config['general']['test_data']))
+
+
+    # print data info
+    print("="*15, "데이터 개수" ,"="*15)
+    print(f"train_df.shape: {train_df.shape}")
+    print(f"val_df.shape: {val_df.shape}")
+    print(f"test_df.shape: {test_df.shape}")
+    print("="*15, "데이터 개수" ,"="*15)
+    print()
+
+    # tokenize
+    print("="*15, "토큰화 진행 중..." ,"="*15)
+    tokenized_train = tokenize_data(df=train_df, tokenizer=tokenizer, config=config, test=False)
+    tokenized_val = tokenize_data(df=val_df, tokenizer=tokenizer, config=config, test=False)
+    # tokenized_test = tokenize_data(df=test_df, tokenizer=tokenizer, config=config, test=True)
+    print("="*15, "토큰화 완료" ,"="*15)
+    print()
+
+    # make SummDataset
+    print("="*15, "make SummDataset..." ,"="*15)
+    summ_train_dataset = SummDataset(tokenized_data=tokenized_train, tokenizer=tokenizer, config=config)
+    summ_val_dataset = SummDataset(tokenized_data=tokenized_val, tokenizer=tokenizer, config=config)
+    # summ_test_dataset = SummDataset(tokenized_data=tokenized_test, tokenizer=tokenizer, config=config)
+    print("="*15, "SummDataset 완료" ,"="*15)
+
+    return summ_train_dataset, summ_val_dataset
+
+def prepare_test_dataset(config, tokenizer, val_flag=False):
+
+    if val_flag:
+        test_file_path = os.path.join(config['general']['data_path']['val_data'])
+    else:
+        test_file_path = os.path.join(config['general']['data_path']['test_data'])
+
+    test_df = pd.read_csv(test_file_path)
 
     print('-'*150)
-    print("train dataframe columns:",train_data.columns)
-    print("val dataframe columns:",val_data.columns)
-
+    print(f'test_data:\n{test_df["dialogue"][0]}')
     print('-'*150)
-    print(f'train_data:\n {train_data["dialogue"][0]}')
-    print(f'train_label:\n {train_data["summary"][0]}')
 
-    print('-'*150)
-    print(f'val_data:\n {val_data["dialogue"][0]}')
-    print(f'val_label:\n {val_data["summary"][0]}')
+    tokenized_test = tokenize_data(df=test_df, tokenizer=tokenizer, config=config, test=True)
+    summ_test_dataset = SummDataset(tokenized_data=tokenized_test, tokenizer=tokenizer, config=config)
 
-    # Enc-Dec 구조의 모델인 경우 Encoder input과 Decoder input을 구분.
-    encoder_input_train , decoder_input_train, decoder_output_train = preprocessor.make_input(train_data)
-    encoder_input_val , decoder_input_val, decoder_output_val = preprocessor.make_input(val_data)
-    print('-'*10, 'Load data complete', '-'*10,)
-
-    tokenized_encoder_inputs = tokenizer(
-        encoder_input_train, 
-        return_tensors="pt", 
-        padding=True,
-        add_special_tokens=True, 
-        truncation=True, 
-        max_length=config['tokenizer']['encoder_max_len'], 
-        return_token_type_ids=False
-    )
-    tokenized_decoder_inputs = tokenizer(
-        decoder_input_train, 
-        return_tensors="pt", 
-        padding=True,
-        add_special_tokens=True, 
-        truncation=True, 
-        max_length=config['tokenizer']['decoder_max_len'], 
-        return_token_type_ids=False
-    )
-    tokenized_decoder_ouputs = tokenizer(
-        decoder_output_train, 
-        return_tensors="pt", 
-        padding=True,
-        add_special_tokens=True, 
-        truncation=True, 
-        max_length=config['tokenizer']['decoder_max_len'], 
-        return_token_type_ids=False
-    )
-
-    train_inputs_dataset = DatasetForTrain(tokenized_encoder_inputs, tokenized_decoder_inputs, tokenized_decoder_ouputs,len(encoder_input_train))
-
-    val_tokenized_encoder_inputs = tokenizer(
-        encoder_input_val, 
-        return_tensors="pt", 
-        padding=True,
-        add_special_tokens=True, 
-        truncation=True, 
-        max_length=config['tokenizer']['encoder_max_len'], 
-        return_token_type_ids=False
-    )
-    val_tokenized_decoder_inputs = tokenizer(
-        decoder_input_val, 
-        return_tensors="pt", 
-        padding=True,
-        add_special_tokens=True, 
-        truncation=True, 
-        max_length=config['tokenizer']['decoder_max_len'], 
-        return_token_type_ids=False
-    )
-    val_tokenized_decoder_ouputs = tokenizer(
-        decoder_output_val, 
-        return_tensors="pt", 
-        padding=True,
-        add_special_tokens=True, 
-        truncation=True, 
-        max_length=config['tokenizer']['decoder_max_len'], 
-        return_token_type_ids=False
-    )
-
-    val_inputs_dataset = DatasetForVal(val_tokenized_encoder_inputs, val_tokenized_decoder_inputs, val_tokenized_decoder_ouputs,len(encoder_input_val))
-
-    print('-'*10, 'Make dataset complete', '-'*10,)
-    return train_inputs_dataset, val_inputs_dataset
+    return test_df, summ_test_dataset
