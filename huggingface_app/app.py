@@ -541,7 +541,7 @@ with gr.Blocks() as demo:
         current_index_2 = gr.State(0)
         
         with gr.Row():
-            inference_file_input = gr.File(label="Upload Inferred Validation CSV")
+            inference_file_input = gr.File(label="Upload Inferred Validation CSV", value="./data/dev_sample.csv")
             tokenizer_input = gr.Textbox(label="Tokenizer", value="digit82/kobart-summarization")
         
         with gr.Row():
