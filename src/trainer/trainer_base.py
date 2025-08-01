@@ -1,10 +1,9 @@
-from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer
+from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer, DataCollatorForSeq2Seq
 from transformers import EarlyStoppingCallback
 import torch
 from transformers.optimization import get_cosine_with_hard_restarts_schedule_with_warmup
 import wandb
 import os
-from rouge import Rouge # 모델의 성능을 평가하기 위한 라이브러리입니다.
 import numpy as np
 from transformers import AutoTokenizer
 from rouge_score import rouge_scorer
@@ -136,10 +135,24 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
         special_tokens_dict={'additional_special_tokens':config['tokenizer']['special_tokens']}
         eval_tokenizer.add_special_tokens(special_tokens_dict)
 
+    # T5, BART 등 서로 다른 계열의 모델에서 decoder input을 만들기 위한 DataCollator
+    '''
+    - 경고1
+    UserWarning: Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:254.)
+        - 배치의 시퀀스 길이를 맞추기 위해 패딩(padding)을 해야 하는데, 어떤 토큰 ID를 사용해야 할지 명확하게 지정되지 않았을 때 발생
+    
+    '''
+    data_collator = DataCollatorForSeq2Seq(
+        tokenizer=tokenizer,
+        model=generate_model,
+        padding=True,
+    )
+
     # Trainer 클래스를 정의합니다.
     trainer = Seq2SeqTrainer(
         model=generate_model, # 사용자가 사전 학습하기 위해 사용할 모델을 입력합니다.
         args=training_args,
+        data_collator=data_collator, # DataCollator
         train_dataset=train_inputs_dataset,
         eval_dataset=val_inputs_dataset,
         compute_metrics = lambda pred: compute_metrics(pred, config, tokenizer, eval_tokenizer),

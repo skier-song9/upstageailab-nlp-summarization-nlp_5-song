@@ -17,16 +17,18 @@ class SummDataset(Dataset):
         self.tokenizer = tokenizer
         self.config = config
     def __getitem__(self, index):
-        input_ids = torch.tensor(self.tokenized_data['input_ids'][index])
+        input_ids = self.tokenized_data['input_ids'][index]
 
         # 추론용 데이터셋인 경우 {"input_ids":[[tokens]...], "labels": None} 임.
         labels = self.tokenized_data['labels'] ### 문제의 코드
         if labels is not None:
-            labels = torch.tensor(labels[index])
+            labels = labels[index]
+        else: # None 인 경우
+            labels = [None]
 
-        # attention_mask를 생성
-        attention_mask = input_ids.ne(self.tokenizer.pad_token_id)
-        return dict(input_ids=input_ids, labels=labels, attention_mask=attention_mask)
+        # attention_mask를 생성 > attention_mask는 DataCollator가 자동으로 생성.
+        # attention_mask = input_ids.ne(self.tokenizer.pad_token_id)
+        return dict(input_ids=input_ids, labels=labels)
     def __len__(self):
         return len(self.tokenized_data['input_ids'])
 
@@ -44,7 +46,7 @@ def tokenize_data(df:pd.DataFrame, tokenizer:AutoTokenizer, config:Dict, test:bo
     tokenized_dialogues = [
         tokenizer(
             dialogue,
-            padding='max_length',
+            # padding=False, # DataCollatorForSeq2Seq에서 동적으로 padding을 하게 된다. 따라서 여기서는 padding을 하지 않는다.
             truncation=True,
             max_length=config['tokenizer']['encoder_max_len'],
             add_special_tokens=True
@@ -60,7 +62,7 @@ def tokenize_data(df:pd.DataFrame, tokenizer:AutoTokenizer, config:Dict, test:bo
         tokenized_summaries = [
             tokenizer(
                 summary,
-                padding='max_length',
+                # padding=False, # DataCollatorForSeq2Seq에서 동적으로 padding을 하게 된다. 따라서 여기서는 padding을 하지 않는다.
                 truncation=True,
                 max_length=config['tokenizer']['decoder_max_len'],
                 add_special_tokens=True
@@ -70,12 +72,12 @@ def tokenize_data(df:pd.DataFrame, tokenizer:AutoTokenizer, config:Dict, test:bo
         tokenized_summaries = [[-100 if token == tokenizer.pad_token_id else token for token in summary] for summary in tokenized_summaries]
 
     out = {'input_ids': tokenized_dialogues, 'labels': tokenized_summaries}
-    # print("="*15, "데이터 개수" ,"="*15)
-    # print("tokenizing 된 데이터 형태 예시")
-    # print(tokenizer.convert_ids_to_tokens(tokenized_dialogues[-1]))
-    # print("label의 형태 예시")
-    # print(tokenized_summaries[-1])
-    # print("="*15, "데이터 개수" ,"="*15)
+    print("="*15, "tokenizing start" ,"="*15)
+    print("tokenizing 된 데이터 형태 예시")
+    print(tokenizer.convert_ids_to_tokens(tokenized_dialogues[-1]))
+    print("label의 형태 예시")
+    print(tokenizer.convert_ids_to_tokens(tokenized_summaries[-1]) if tokenized_summaries is not None else "[None]")
+    print("="*15, "tokenizing end" ,"="*15)
     return out
     
 def prepare_train_dataset(tokenizer, config, practice=False):
@@ -87,9 +89,21 @@ def prepare_train_dataset(tokenizer, config, practice=False):
     :return _type_: _description_
     """
     # load data
-    train_df = pd.read_csv(os.path.join(config['general']['data_path'], config['general']['train_data']))
-    val_df = pd.read_csv(os.path.join(config['general']['data_path'], config['general']['val_data']))
-    test_df = pd.read_csv(os.path.join(config['general']['data_path'], config['general']['test_data']))
+    train_df = Preprocess.make_set_as_df(
+        file_path=os.path.join(config['general']['data_path'], config['general']['train_data']),
+        is_train=True,
+        config=config
+    )
+    val_df = Preprocess.make_set_as_df(
+        file_path=os.path.join(config['general']['data_path'], config['general']['val_data']),
+        is_train=True,
+        config=config
+    )
+    test_df = Preprocess.make_set_as_df(
+        file_path=os.path.join(config['general']['data_path'], config['general']['test_data']),
+        is_train=False,
+        config=config
+    )
 
     if practice:
         train_df = train_df.iloc[:256]
@@ -141,3 +155,107 @@ def prepare_test_dataset(config, tokenizer, val_flag=False, practice=False):
     summ_test_dataset = SummDataset(tokenized_data=tokenized_test, tokenizer=tokenizer, config=config)
 
     return test_df, summ_test_dataset
+
+
+### 데이터 전처리 함수 ###
+import re
+
+# 데이터 전처리를 위한 클래스로, 데이터셋을 데이터프레임으로 변환
+class Preprocess:
+    # 클래스 초기화 메서드
+    def __init__(self) -> None:
+        pass
+
+    @staticmethod
+    # 실험에 필요한 컬럼을 가져옵니다.
+    # 정적 메서드로, 클래스 인스턴스 없이 호출 가능
+    def make_set_as_df(file_path, is_train = True, config=None):
+        df = pd.read_csv(file_path) # CSV 파일을 읽어 데이터프레임 생성
+        # 🔁 발화자 기반 지시표현 보완 전처리 적용
+        df['dialogue'] = df['dialogue'].apply(resolve_deictic_with_speaker)
+        # 🔁 텍스트 클린 함수
+        df['dialogue'] = df['dialogue'].apply(clean_text)
+
+        ### special token에 #Topic# 이 있으면, 지시어 프롬프트에 추가.
+        if config is not None and '#Topic#' in config['tokenizer']['special_tokens']:
+            df['dialogue'] = df['dialogue'].apply(add_instructions)
+
+        # is_train 플래그가 True이면 학습용 데이터로 처리
+        if is_train:
+            train_df = df[['fname','dialogue','summary']] # 'fname', 'dialogue', 'summary' 컬럼 선택
+            return train_df # 생성된 학습 데이터프레임 반환
+        # is_train 플래그가 False이면 테스트용 데이터로 처리
+        else:
+            test_df = df[['fname','dialogue']] # 'fname', 'dialogue' 컬럼 선택
+            return test_df # 생성된 테스트 데이터프레임 반환
+
+
+# 지시표현 보완 함수: 직전 발화자 정보로 지시어 대체
+def resolve_deictic_with_speaker(dialogue: str) -> str:
+    deictic_phrases = ['그 사람', '이 사람', '그거', '이거', '그건', '이건', '거기', '저기', '여기']
+    lines = str(dialogue).split('\n')
+    resolved = []
+    last_speaker = None
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        match = re.match(r'^(#Person\d+#):\s*(.*)', line)
+        if match:
+            speaker = match.group(1)
+            utterance = match.group(2)
+
+            for deictic in deictic_phrases:
+                if deictic in utterance and last_speaker:
+                    utterance = utterance.replace(deictic, f'{last_speaker}가 말한')
+
+            last_speaker = speaker
+            resolved.append(f"{speaker}: {utterance}")
+        else:
+            resolved.append(line)
+
+    return '\n'.join(resolved)
+
+# 텍스트 클린 함수
+def clean_text(text: str) -> str:
+    if not isinstance(text, str):
+        return ""
+    
+    ### Sepcial Token 처리 추가
+    
+    
+    # 줄바꿈 표현 통일
+    text = text.replace("\\n", "\n").replace("<br>", "\n").replace("</s>", "\n")
+
+    ### 특이 케이스 : train.csv에는 'ㅎㅎ'가 오직 1개 존재한다. 그런데 이것이 #Person2#: ㅎㅎ 라서 빈문자열로 대체하면 말이 없어진다.
+    # 문맥과 summary에 맞춰 '나도 행복해.'로 바꾼다.
+    text = text.replace("ㅎㅎ", "나도 행복해.")
+
+    # 자소만 있는 단어 제거 (예: ㅋㅋ, ㅇㅋ, ㅜㅜ) > 이모티콘
+    text = re.sub(r"\b[ㄱ-ㅎㅏ-ㅣ]{2,}\b", "", text)
+
+    # 중복 줄바꿈 제거
+    text = re.sub(r"\n+", r"\n", text)
+
+    # 중복 공백 제거
+    text = re.sub(r"\s+", ' ', text)
+
+    return text.strip()
+
+def add_instructions(row:pd.Series) -> pd.Series:
+    """지시어 프롬프트 추가.
+
+    :param str dialogue: _description_
+    :return str: _description_
+    """
+    try:
+        topic = str(row['topic']).strip()
+        dialogue = row['dialogue']
+        dialogue = f"#Topic#{topic}#SEP##Dialogue#{dialogue}"
+        row['dialogue'] = dialogue
+    ##Topic#','#Dialogue#','#Summary#','#SEP#
+    except:
+        return row
+    return row

@@ -21,8 +21,8 @@ def load_tokenizer_and_model_for_train(config, device):
         "pretrained_model_name_or_path": model_name
     }
     if 't5' in model_name.lower():
-        tokenizer_args_dict['legacy'] = False
-        tokenizer_args_dict['use_fast'] = False
+        tokenizer_args_dict['legacy'] = 'false'
+        tokenizer_args_dict['use_fast'] = 'false'
     tokenizer = AutoTokenizer.from_pretrained(**tokenizer_args_dict)
     try:
         generate_model = AutoModelForSeq2SeqLM.from_pretrained(config['general']['model_name'],config=model_config)
@@ -30,6 +30,11 @@ def load_tokenizer_and_model_for_train(config, device):
         generate_model = AutoModelForCausalLM.from_pretrained(config['general']['model_name'],config=model_config)
     special_tokens_dict={'additional_special_tokens':config['tokenizer']['special_tokens']}
     tokenizer.add_special_tokens(special_tokens_dict)
+
+    # pad token을 명시적으로 model의 config에 추가한다.
+    # if hasattr(generate_model.config, "pad_token_id"):
+    #     print("="*15,"model에 pad_token_id 명시","="*15)
+    #     generate_model.config.pad_token_id = tokenizer.pad_token_id
 
     generate_model.resize_token_embeddings(len(tokenizer)) # 사전에 special token을 추가했으므로 재구성 해줍니다.
     generate_model.to(device)
