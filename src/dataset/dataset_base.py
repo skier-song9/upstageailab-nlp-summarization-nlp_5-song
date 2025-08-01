@@ -20,7 +20,7 @@ class SummDataset(Dataset):
         input_ids = torch.tensor(self.tokenized_data['input_ids'][index])
 
         # 추론용 데이터셋인 경우 {"input_ids":[[tokens]...], "labels": None} 임.
-        labels = self.tokenized_data['labels']
+        labels = self.tokenized_data['labels'] ### 문제의 코드
         if labels is not None:
             labels = torch.tensor(labels[index])
 
@@ -70,26 +70,31 @@ def tokenize_data(df:pd.DataFrame, tokenizer:AutoTokenizer, config:Dict, test:bo
         tokenized_summaries = [[-100 if token == tokenizer.pad_token_id else token for token in summary] for summary in tokenized_summaries]
 
     out = {'input_ids': tokenized_dialogues, 'labels': tokenized_summaries}
-    print("="*15, "데이터 개수" ,"="*15)
-    print("tokenizing 된 데이터 형태 예시")
-    print(tokenizer.convert_ids_to_tokens(tokenized_dialogues[-1]))
-    print("label의 형태 예시")
-    print(tokenized_summaries[-1])
-    print("="*15, "데이터 개수" ,"="*15)
+    # print("="*15, "데이터 개수" ,"="*15)
+    # print("tokenizing 된 데이터 형태 예시")
+    # print(tokenizer.convert_ids_to_tokens(tokenized_dialogues[-1]))
+    # print("label의 형태 예시")
+    # print(tokenized_summaries[-1])
+    # print("="*15, "데이터 개수" ,"="*15)
     return out
     
-def prepare_train_dataset(tokenizer, config):
+def prepare_train_dataset(tokenizer, config, practice=False):
     """train, val, test SummDataset을 준비
 
     :param transformers.AutoTokenizer tokenizer: tokenizer
     :param Dict config: _description_
+    :param bool practice: True이면, 코드 실험용이므로 train은 256, val은 10개만 반환한다.
     :return _type_: _description_
     """
     # load data
     train_df = pd.read_csv(os.path.join(config['general']['data_path'], config['general']['train_data']))
-    val_df = pd.read_csv(os.path.join(config['general']['data_path']['val_data']))
+    val_df = pd.read_csv(os.path.join(config['general']['data_path'], config['general']['val_data']))
     test_df = pd.read_csv(os.path.join(config['general']['data_path'], config['general']['test_data']))
 
+    if practice:
+        train_df = train_df.iloc[:256]
+        val_df = val_df.iloc[:10]
+        test_df = test_df.iloc[:10]
 
     # print data info
     print("="*15, "데이터 개수" ,"="*15)
@@ -116,14 +121,17 @@ def prepare_train_dataset(tokenizer, config):
 
     return summ_train_dataset, summ_val_dataset
 
-def prepare_test_dataset(config, tokenizer, val_flag=False):
+def prepare_test_dataset(config, tokenizer, val_flag=False, practice=False):
 
     if val_flag:
-        test_file_path = os.path.join(config['general']['data_path']['val_data'])
+        test_file_path = os.path.join(config['general']['data_path'], config['general']['val_data'])
     else:
-        test_file_path = os.path.join(config['general']['data_path']['test_data'])
+        test_file_path = os.path.join(config['general']['data_path'], config['general']['test_data'])
 
     test_df = pd.read_csv(test_file_path)
+
+    if practice:
+        test_df = test_df.iloc[:10]
 
     print('-'*150)
     print(f'test_data:\n{test_df["dialogue"][0]}')

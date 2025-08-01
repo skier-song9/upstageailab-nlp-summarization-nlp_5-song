@@ -142,7 +142,7 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
         args=training_args,
         train_dataset=train_inputs_dataset,
         eval_dataset=val_inputs_dataset,
-        compute_metrics = lambda pred: compute_metrics(config, tokenizer, pred, eval_tokenizer),
+        compute_metrics = lambda pred: compute_metrics(pred, config, tokenizer, eval_tokenizer),
         callbacks = [MyCallback],
         optimizers=(
             optimizer,

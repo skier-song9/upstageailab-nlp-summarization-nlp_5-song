@@ -7,6 +7,16 @@ def load_tokenizer_and_model_for_train(config, device):
     model_name = config['general']['model_name']
     model_config = AutoConfig.from_pretrained(model_name)
 
+    # generatino config를 미리 설정해야 한다.
+    if hasattr(model_config, 'num_beams'):
+        model_config.num_beams = config['inference']['num_beams'] # 생성된 문장에서 특정 크기의 N-gram이 반복되지 않도록 설정합니다.
+    if hasattr(model_config, 'max_length'):
+        model_config.max_length = config['inference']['generate_max_length'] # 디코더가 생성할 최대 출력 시퀀스 길이(=토큰 개수)
+    if hasattr(model_config, 'no_repeat_ngram_size'):
+        model_config.no_repeat_ngram_size = config['inference']['no_repeat_ngram_size'] # 더 나은 문장을 탐색하기 위해 빔 서치(Beam Search)에서 유지할 빔의 개수
+    if hasattr(model_config, 'length_penalty'):
+        model_config.length_penalty = config['inference']['length_penalty'] # > 1로 설정하면 짧은 문장을 선호하도록 페널티를 강화, 1보다 작은 값을 주면 긴 생성문을 선호하게 된다.
+
     tokenizer_args_dict = {
         "pretrained_model_name_or_path": model_name
     }
