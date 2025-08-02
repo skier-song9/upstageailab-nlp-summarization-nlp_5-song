@@ -1,0 +1,108 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Logs and experiment tracking
+logs/
+outputs/
+wandb/
+*.log
+lightning_logs/
+
+# Model outputs and experiments
+models/
+checkpoints/
+*.pth
+*.pt
+*.bin
+*.h5
+*.pkl
+*.pickle
+
+# Data files (large files)  
+data/
+*.csv
+*.json
+*.jsonl
+*.tsv
+# *.txt  # 주석처리: requirements.txt 등 중요한 텍스트 파일 보호
+*.parquet
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+
+# Config overrides (local settings)
+config_local.yaml
+config_override.yaml
+*_local.yaml
+
+# Secrets and credentials
+.env
+.env.local
+secrets.yaml
+credentials.json
+*.key
+*.pem
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Custom
+temp/
+tmp/
+scratch/
+debug/
+
+# Sync reports (자동 생성된 동기화 보고서)
+sync_report_*.txt
+
+# Unsloth compiled cache
+unsloth_compiled_cache/
+
+# Hugging Face model cache
+hf_cache/
