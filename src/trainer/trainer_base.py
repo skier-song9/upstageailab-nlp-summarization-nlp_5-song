@@ -17,19 +17,29 @@ def remove_origin_special_tokens(decoded_preds, decoded_labels, remove_tokens):
         replaced_labels = [sentence.replace(token, " ") for sentence in replaced_labels]
     replaced_predictions = [re.sub(r'\s+', ' ', sentence) for sentence in replaced_predictions]
     replaced_labels = [re.sub(r'\s+', ' ', sentence)  for sentence in replaced_labels]  
-    return replaced_predictions, replaced_labels      
+    return replaced_predictions, replaced_labels
 
 def compute_metrics(pred, config, tokenizer:AutoTokenizer, eval_tokenizer:AutoTokenizer=None):
     preds, labels = pred
     if isinstance(preds, tuple):
         preds = preds[0]
     
+    print('-'*150)
+    print(f"Before batch_decode PRED: {preds[0]}")
+    print(f"Before batch_decode LABEL: {labels[0]}")
+    print('-'*150)
+
     # 생성된 summary를 decode
     labels = np.where(labels != -100, labels, tokenizer.pad_token_id) # id가 -100인 input_ids는 padding 토큰으로 변환
     decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=False)
     # preds.argmax(-1) : 모델의 예측 결과에서 가장 확률이 높은 토큰 ID를 선택
     # skip_special_tokens=False : 현재 task에서는 special token이 summary에 포함되어야 하기 때문에 False로 설정. True면 디코딩 과정에서 special token을 제거함.
     decoded_preds = tokenizer.batch_decode(preds.argmax(-1), skip_special_tokens=False)
+
+    print('-'*150)
+    print(f"After batch_decode PRED: {decoded_preds[0]}")
+    print(f"After batch_decode LABEL: {decoded_labels[0]}")
+    print('-'*150)
 
     # 앞에서 skip_special_tokens=False 했기 때문에 따로 저장해둔 remove_tokens를 제거해야 한다.
     # 수동으로 정의된 제거 토큰들을 디코딩된 문자열에서 제거합니다.
@@ -44,6 +54,16 @@ def compute_metrics(pred, config, tokenizer:AutoTokenizer, eval_tokenizer:AutoTo
     else: # eval_tokenizer로 다시 토큰화하고 공백으로 재결합
         retokenized_preds = [" ".join(eval_tokenizer.tokenize(sentence)) for sentence in replaced_predictions]
         retokenized_labels = [" ".join(eval_tokenizer.tokenize(sentence)) for sentence in replaced_labels]
+
+    print('-'*150)
+    print(f"PRED: {retokenized_preds[0]}")
+    print(f"GOLD: {retokenized_labels[0]}")
+    print('-'*150)
+    print(f"PRED: {retokenized_preds[1]}")
+    print(f"GOLD: {retokenized_labels[1]}")
+    print('-'*150)
+    print(f"PRED: {retokenized_preds[2]}")
+    print(f"GOLD: {retokenized_labels[2]}")
 
     # 토큰 기준 Rouge 점수 계산.
     scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=False) # 한국어 특성 상 stemmer 사용 안 함.
@@ -129,7 +149,10 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
 
     ### evaluation 용 tokenizer가 설정되어 있다면 해당 토크나이저로 validation 점수 계산
     eval_tokenizer = None
-    if config['general'].get("eval_tokenizer", False) and len(config['general']['eval_tokenizer']) > 1:
+    if config['general'].get("eval_tokenizer", False) and len(config['general']['eval_tokenizer'])!='none':
+        print("-"*150)
+        print(f"Using {config['general']['eval_tokenizer']} as an evaluation tokenizer.")
+        print("-"*150)
         eval_tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path=config['general']['eval_tokenizer'])
         eval_tokenizer.remove_tokens = list(eval_tokenizer.special_tokens_map.values())
         special_tokens_dict={'additional_special_tokens':config['tokenizer']['special_tokens']}
@@ -141,11 +164,26 @@ def load_trainer_for_train(config,generate_model,tokenizer,train_inputs_dataset,
     UserWarning: Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:254.)
         - 배치의 시퀀스 길이를 맞추기 위해 패딩(padding)을 해야 하는데, 어떤 토큰 ID를 사용해야 할지 명확하게 지정되지 않았을 때 발생
     
+    T5 모델: T5ForConditionalGeneration 모델은 labels만 제공되면 내부적으로 shift_right 연산을 통해 
+        decoder_input_ids를 자동으로 생성합니다. 이 과정에서 labels의 맨 앞에 패딩 토큰 ID를 추가하여 
+        디코더의 첫 번째 입력 토큰으로 사용합니다. 
+        따라서 DataCollatorForSeq2Seq가 labels를 -100으로 처리하더라도, 모델 내부에서 올바른 decoder_input_ids가 만들어집니다.
+
+    BART 모델: BartForConditionalGeneration 모델 또한 labels만 주어지면 내부적으로 shift_right를 통해 
+        decoder_input_ids를 생성합니다. 그러나 이 과정에서 labels가 -100으로 채워진 부분이 있으면, 
+        이를 디코더의 입력 토큰으로 사용할 때 문제가 발생할 수 있습니다. 
+        특히, labels가 -100으로 시작하는 경우, decoder_input_ids가 올바르게 생성되지 않아 
+        모델의 내부 로직에서 차원 불일치가 발생할 가능성이 있습니다.
+        >> src/dataset/dataset_base/tokenize_data 함수에서 토큰화된 summary의 pad_token을 -100으로 변환할 때 -100이 맨 앞에 존재하면 오류가 발생한다.
+        >> data collator의 label_pad_token_id를 -100으로 명시해준다.
     '''
     data_collator = DataCollatorForSeq2Seq(
         tokenizer=tokenizer,
         model=generate_model,
         padding=True,
+        # BART 모델의 차원 불일치 문제를 해결하기 위해 label_pad_token_id를 -100으로 명시합니다.
+        # label_pad_token_id=-100,
+        # decoder_start_token_id=generate_model.config.decoder_start_token_id # 디코더의 시작 토큰 ID를 모델의 tokenizer에 맞게 명시합니다.
     )
 
     # Trainer 클래스를 정의합니다.

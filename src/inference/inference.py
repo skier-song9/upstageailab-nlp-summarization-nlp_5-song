@@ -1,6 +1,7 @@
 import os
 import torch
 from torch.utils.data import DataLoader
+from transformers import DataCollatorForSeq2Seq
 from tqdm import tqdm
 import pandas as pd
 import re
@@ -11,14 +12,32 @@ def inference(config, generate_model, tokenizer, test_df, summ_test_dataset, val
     print('-'*10, f'device : {device}', '-'*10,)
     print(torch.__version__)
 
-    def inference_collate_fn(batch):
-        # batch의 labels가 None으로 넘어오면 input_ids와 attention_mask만 텐서 타입을 보장하여 묶는다.
-        input_ids = torch.stack([item['input_ids'] for item in batch])
-        attention_mask = torch.stack([item['attention_mask'] for item in batch])
-        return {'input_ids': input_ids, 'attention_mask': attention_mask}
+    # def inference_collate_fn(batch):
+    #     """
+    #     :param List[{input_ids:List}] batch: SummDataset에서 batch_size만큼 __getitem__하여 출력한 결과
+
+    #     SummDataset에서 batch의 input_ids를 tensor 리스트로 변환해야 torch.stack으로 쌓을 수 있다.
+    #     """
+    #     # batch의 labels가 None으로 넘어오면 input_ids와 attention_mask만 텐서 타입을 보장하여 묶는다.
+    #     input_ids = torch.stack([item['input_ids'] for item in batch])
+    #     attention_mask = torch.stack([item['attention_mask'] for item in batch])
+    #     return {'input_ids': input_ids, 'attention_mask': attention_mask}
+    
+    # T5, BART 등 서로 다른 계열의 모델에서 decoder input을 만들기 위한 DataCollator
+    '''
+    - 경고1
+    UserWarning: Creating a tensor from a list of numpy.ndarrays is extremely slow. Please consider converting the list to a single numpy.ndarray with numpy.array() before converting to a tensor. (Triggered internally at /pytorch/torch/csrc/utils/tensor_new.cpp:254.)
+        - 배치의 시퀀스 길이를 맞추기 위해 패딩(padding)을 해야 하는데, 어떤 토큰 ID를 사용해야 할지 명확하게 지정되지 않았을 때 발생
+    
+    '''
+    data_collator = DataCollatorForSeq2Seq(
+        tokenizer=tokenizer,
+        model=generate_model,
+        padding=True,
+    )
 
     # generate_model , tokenizer = load_tokenizer_and_model_for_test(config,device)
-    dataloader = DataLoader(summ_test_dataset, batch_size=config['inference']['batch_size'], shuffle=False, collate_fn=inference_collate_fn)
+    dataloader = DataLoader(summ_test_dataset, batch_size=config['inference']['batch_size'], shuffle=False, collate_fn=data_collator)
 
     all_summary = []
     generate_model.eval()

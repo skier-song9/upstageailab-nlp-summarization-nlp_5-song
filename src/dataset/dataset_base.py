@@ -24,7 +24,7 @@ class SummDataset(Dataset):
         if labels is not None:
             labels = labels[index]
         else: # None 인 경우
-            labels = [None]
+            labels = None
 
         # attention_mask를 생성 > attention_mask는 DataCollator가 자동으로 생성.
         # attention_mask = input_ids.ne(self.tokenizer.pad_token_id)
@@ -69,14 +69,17 @@ def tokenize_data(df:pd.DataFrame, tokenizer:AutoTokenizer, config:Dict, test:bo
             )['input_ids'] for summary in summaries.values
         ]
         # 패딩된 부분을 -100으로 치환하여 학습에서 제외합니다.
-        tokenized_summaries = [[-100 if token == tokenizer.pad_token_id else token for token in summary] for summary in tokenized_summaries]
+        """
+        
+        """
+        # tokenized_summaries = [[-100 if token == tokenizer.pad_token_id else token for token in summary] for summary in tokenized_summaries]
 
     out = {'input_ids': tokenized_dialogues, 'labels': tokenized_summaries}
     print("="*15, "tokenizing start" ,"="*15)
     print("tokenizing 된 데이터 형태 예시")
     print(tokenizer.convert_ids_to_tokens(tokenized_dialogues[-1]))
     print("label의 형태 예시")
-    print(tokenizer.convert_ids_to_tokens(tokenized_summaries[-1]) if tokenized_summaries is not None else "[None]")
+    print(tokenizer.convert_ids_to_tokens(tokenized_summaries[-1]) if tokenized_summaries is not None else "None")
     print("="*15, "tokenizing end" ,"="*15)
     return out
     
@@ -132,6 +135,10 @@ def prepare_train_dataset(tokenizer, config, practice=False):
     summ_val_dataset = SummDataset(tokenized_data=tokenized_val, tokenizer=tokenizer, config=config)
     # summ_test_dataset = SummDataset(tokenized_data=tokenized_test, tokenizer=tokenizer, config=config)
     print("="*15, "SummDataset 완료" ,"="*15)
+
+    print("="*15, "SummDataset 확인" ,"="*15)
+    out = summ_train_dataset.__getitem__(0)
+    print("="*15, "SummDataset 확인 완료" ,"="*15)
 
     return summ_train_dataset, summ_val_dataset
 
