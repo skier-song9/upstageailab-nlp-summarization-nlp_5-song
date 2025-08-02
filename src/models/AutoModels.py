@@ -119,7 +119,16 @@ def load_tokenizer_and_model_for_train(config, device):
     if 't5' in model_name.lower():
         tokenizer_args_dict['use_fast'] = False # 만약 T5 toeknizer 로드 중 오류가 발생한다면 'false' 문자열로 변경
         # fast_tokenizer를 사용하지 못하는 경우, slow tokenizer를 사용하여 unkown 문자에 대한 토큰화를 진행한다.
-    tokenizer = AutoTokenizer.from_pretrained(**tokenizer_args_dict)
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(**tokenizer_args_dict)
+    except:
+        tokenizer_args_dict = {
+            "pretrained_model_name_or_path": model_name,
+            "legacy": 'false'
+        }
+        if 't5' in model_name.lower():
+            tokenizer_args_dict['use_fast'] = 'false' # 만약 T5 toeknizer 로드 중 오류가 발생한다면 'false' 문자열로 변경
+        tokenizer = AutoTokenizer.from_pretrained(**tokenizer_args_dict)
 
     # tokenizer가 PreTrainedTokenizerFast라면 CustomPreTrainedTokenizerFast으로 바꿔야 한다.
     # 경고는 무시해도 괜찮다.
