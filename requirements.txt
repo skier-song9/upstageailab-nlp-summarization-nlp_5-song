@@ -41,3 +41,5 @@ seaborn
 python-dotenv
 nltk
 scipy
+kiwipiepy==0.21.0
+datasets

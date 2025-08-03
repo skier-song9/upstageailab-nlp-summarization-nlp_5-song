@@ -166,6 +166,7 @@ def prepare_test_dataset(config, tokenizer, val_flag=False, practice=False):
 
 ### 데이터 전처리 함수 ###
 import re
+from typing import List
 
 # 데이터 전처리를 위한 클래스로, 데이터셋을 데이터프레임으로 변환
 class Preprocess:
@@ -177,24 +178,38 @@ class Preprocess:
     # 실험에 필요한 컬럼을 가져옵니다.
     # 정적 메서드로, 클래스 인스턴스 없이 호출 가능
     def make_set_as_df(file_path, is_train = True, config=None):
-        df = pd.read_csv(file_path) # CSV 파일을 읽어 데이터프레임 생성
-        # 🔁 발화자 기반 지시표현 보완 전처리 적용
-        df['dialogue'] = df['dialogue'].apply(resolve_deictic_with_speaker)
-        # 🔁 텍스트 클린 함수
-        df['dialogue'] = df['dialogue'].apply(clean_text)
+        def load_df(file_path, is_train, config):
+            df = pd.read_csv(file_path) # CSV 파일을 읽어 데이터프레임 생성
+            # 🔁 발화자 기반 지시표현 보완 전처리 적용
+            df['dialogue'] = df['dialogue'].apply(resolve_deictic_with_speaker)
+            # 🔁 텍스트 클린 함수
+            df['dialogue'] = df['dialogue'].apply(clean_text)
 
-        ### special token에 #Topic# 이 있으면, 지시어 프롬프트에 추가.
-        if config is not None and '#Topic#' in config['tokenizer']['special_tokens']:
-            df['dialogue'] = df['dialogue'].apply(add_instructions)
+            ### special token에 #Topic# 이 있으면, 지시어 프롬프트에 추가.
+            if config is not None and '#Topic#' in config['tokenizer']['special_tokens']:
+                df['dialogue'] = df['dialogue'].apply(add_instructions)
 
-        # is_train 플래그가 True이면 학습용 데이터로 처리
-        if is_train:
-            train_df = df[['fname','dialogue','summary']] # 'fname', 'dialogue', 'summary' 컬럼 선택
-            return train_df # 생성된 학습 데이터프레임 반환
-        # is_train 플래그가 False이면 테스트용 데이터로 처리
-        else:
-            test_df = df[['fname','dialogue']] # 'fname', 'dialogue' 컬럼 선택
-            return test_df # 생성된 테스트 데이터프레임 반환
+            # is_train 플래그가 True이면 학습용 데이터로 처리
+            if is_train:
+                train_df = df[['fname','dialogue','summary']] # 'fname', 'dialogue', 'summary' 컬럼 선택
+                return train_df # 생성된 학습 데이터프레임 반환
+            # is_train 플래그가 False이면 테스트용 데이터로 처리
+            else:
+                test_df = df[['fname','dialogue']] # 'fname', 'dialogue' 컬럼 선택
+                return test_df # 생성된 테스트 데이터프레임 반환
+
+        # 만약 file_path가 리스트로 전달된다면 merge 해라.
+        if isinstance(file_path, List):
+            df = []
+            for fp in file_path:
+                df_ = load_df(fp, is_train, config)
+                df.append(df_)
+            df = pd.concat(df, axis=0) # 행을 늘림
+
+        else: # file_path가 단일 문자열일 때
+            df = load_df(file_path, is_train, config)
+
+        return df
 
 
 # 지시표현 보완 함수: 직전 발화자 정보로 지시어 대체
@@ -230,9 +245,6 @@ def clean_text(text: str) -> str:
     if not isinstance(text, str):
         return ""
     
-    ### Sepcial Token 처리 추가
-    
-    
     # 줄바꿈 표현 통일
     text = text.replace("\\n", "\n").replace("<br>", "\n").replace("</s>", "\n")
 
@@ -260,9 +272,9 @@ def add_instructions(row:pd.Series) -> pd.Series:
     try:
         topic = str(row['topic']).strip()
         dialogue = row['dialogue']
-        dialogue = f"#Topic#{topic}#SEP##Dialogue#{dialogue}"
+        dialogue = f"#Topic#{topic}\n#Dialogue#{dialogue}"
         row['dialogue'] = dialogue
-    ##Topic#','#Dialogue#','#Summary#','#SEP#
+    ##Topic#','#Dialogue#'
     except:
         return row
     return row
