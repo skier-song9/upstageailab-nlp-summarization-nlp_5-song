@@ -92,18 +92,21 @@ def prepare_train_dataset(tokenizer, config, practice=False):
     :return _type_: _description_
     """
     # load data
+    print("="*15, "load train" ,"="*15)
     train_df = Preprocess.make_set_as_df(
-        file_path=os.path.join(config['general']['data_path'], config['general']['train_data']),
+        file_path=config['general']['train_data'],
         is_train=True,
         config=config
     )
+    print("="*15, "load val" ,"="*15)
     val_df = Preprocess.make_set_as_df(
-        file_path=os.path.join(config['general']['data_path'], config['general']['val_data']),
+        file_path=config['general']['val_data'],
         is_train=True,
         config=config
     )
+    print("="*15, "load test" ,"="*15)
     test_df = Preprocess.make_set_as_df(
-        file_path=os.path.join(config['general']['data_path'], config['general']['test_data']),
+        file_path=config['general']['test_data'],
         is_train=False,
         config=config
     )
@@ -187,7 +190,11 @@ class Preprocess:
 
             ### special token에 #Topic# 이 있으면, 지시어 프롬프트에 추가.
             if config is not None and '#Topic#' in config['tokenizer']['special_tokens']:
-                df['dialogue'] = df['dialogue'].apply(add_instructions)
+                df = df.apply(add_instructions, axis=1)
+
+            ### change \n to SEP token
+            if config is not None and config['tokenizer'].get('sep_token', None):
+                df['dialogue'] = df['dialogue'].apply(lambda x : apply_sep_token(x, config['tokenizer']['sep_token']))
 
             # is_train 플래그가 True이면 학습용 데이터로 처리
             if is_train:
@@ -202,12 +209,12 @@ class Preprocess:
         if isinstance(file_path, List):
             df = []
             for fp in file_path:
-                df_ = load_df(fp, is_train, config)
+                df_ = load_df(os.path.join(config['general']['data_path'],fp), is_train, config)
                 df.append(df_)
             df = pd.concat(df, axis=0) # 행을 늘림
 
         else: # file_path가 단일 문자열일 때
-            df = load_df(file_path, is_train, config)
+            df = load_df(os.path.join(config['general']['data_path'],file_path), is_train, config)
 
         return df
 
@@ -278,3 +285,6 @@ def add_instructions(row:pd.Series) -> pd.Series:
     except:
         return row
     return row
+
+def apply_sep_token(text:str, sep_token:str) -> str:
+    return re.sub(r"\n", sep_token, text)
