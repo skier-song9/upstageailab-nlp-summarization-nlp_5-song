@@ -1,15 +1,8 @@
 import argparse
-import pandas as pd
 import os
-import re
-import json
 import yaml
-from glob import glob
-from tqdm import tqdm
-from pprint import pprint
 import torch
 import pytorch_lightning as pl
-from rouge import Rouge # 모델의 성능을 평가하기 위한 라이브러리입니다.
 
 import wandb # 모델 학습 과정을 손쉽게 Tracking하고, 시각화할 수 있는 라이브러리입니다.
 
@@ -26,7 +19,7 @@ from src.models.AutoModels import *
 from src.trainer.trainer_base import *
 from src.inference.inference import *
 
-def main(config, practice=False):
+def main(config, practice=False, config_filename):
     try:
         pl.seed_everything(seed=config['training']['seed'], workers=False) # workers : worker 프로세스 시드는 고정하지 않음  > 과적합 방지.
         # 사용할 device를 정의합니다.
@@ -102,6 +95,12 @@ def main(config, practice=False):
         )
         print("--- Finish Test inference ---")
         print()
+
+        # save config file in output_dir
+        config_path = os.path.join(project_dir, 'general','output_dir',args.config)
+        with open(config_path, "w") as file:
+            yaml.dump(config, file, allow_unicode=True)
+
     finally:
         # (선택) 모델 학습이 완료된 후 wandb를 종료합니다.
         wandb.finish()
@@ -144,7 +143,7 @@ if __name__ == "__main__":
     os.environ['TORCH_USE_CUDA_DSA'] = 'true'
 
     if not args.inference:
-        main(loaded_config, args.practice)
+        main(loaded_config, args.practice, args.config)
     else:
         device = "cuda:0" if torch.cuda.is_available else "cpu"
         generate_model, tokenizer = load_tokenizer_and_model_for_inference(loaded_config, device)
