@@ -19,7 +19,7 @@ from src.models.AutoModels import *
 from src.trainer.trainer_base import *
 from src.inference.inference import *
 
-def main(config, practice=False, config_filename):
+def main(config, practice=False, config_filename="config.yaml"):
     try:
         pl.seed_everything(seed=config['training']['seed'], workers=False) # workers : worker 프로세스 시드는 고정하지 않음  > 과적합 방지.
         # 사용할 device를 정의합니다.
