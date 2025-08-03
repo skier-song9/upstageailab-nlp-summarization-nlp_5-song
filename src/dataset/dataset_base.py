@@ -193,7 +193,7 @@ class Preprocess:
                 df = df.apply(add_instructions, axis=1)
 
             ### change \n to SEP token
-            if config is not None and config['tokenizer'].get('sep_token', None):
+            if config is not None and config['tokenizer'].get('sep_token', None) is not None:
                 df['dialogue'] = df['dialogue'].apply(lambda x : apply_sep_token(x, config['tokenizer']['sep_token']))
 
             # is_train 플래그가 True이면 학습용 데이터로 처리
