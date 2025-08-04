@@ -224,9 +224,9 @@ def load_tokenizer_and_model_for_train(config, device):
 
     # tokenizer가 PreTrainedTokenizerFast라면 CustomPreTrainedTokenizerFast으로 바꿔야 한다.
     # 경고는 무시해도 괜찮다.
-    # if "PreTrainedTokenizerFast" in str(tokenizer.__class__):
-    #     print("=== Change PreTrainedTokenizerFast to CustomPreTrainedTokenizerFast ===")
-    #     tokenizer = CustomPreTrainedTokenizerFast.from_pretrained(**tokenizer_args_dict)
+    if "PreTrainedTokenizerFast" in str(tokenizer.__class__):
+        print("=== Change PreTrainedTokenizerFast to CustomPreTrainedTokenizerFast ===")
+        tokenizer = CustomPreTrainedTokenizerFast.from_pretrained(**tokenizer_args_dict)
 
     # if "BartTokenizerFast" in str(tokenizer.__class__):
     #     print("=== Change BartTokenizerFast to CustomBartTokenizerFast ===")
