@@ -183,8 +183,8 @@ class Preprocess:
     def make_set_as_df(file_path, is_train = True, config=None):
         def load_df(file_path, is_train, config):
             df = pd.read_csv(file_path) # CSV 파일을 읽어 데이터프레임 생성
-            # 🔁 발화자 기반 지시표현 보완 전처리 적용
-            df['dialogue'] = df['dialogue'].apply(resolve_deictic_with_speaker)
+            # 🔁 발화자 기반 지시표현 보완 전처리 적용 [x]
+            # df['dialogue'] = df['dialogue'].apply(resolve_deictic_with_speaker)
             # 🔁 텍스트 클린 함수
             df['dialogue'] = df['dialogue'].apply(clean_text)
 
@@ -212,6 +212,9 @@ class Preprocess:
                 df_ = load_df(os.path.join(config['general']['data_path'],fp), is_train, config)
                 df.append(df_)
             df = pd.concat(df, axis=0) # 행을 늘림
+            # fname 초기화
+            prefix = df.iloc[0]['fname'].split('_')[0]
+            df['fname'] = [f"{prefix}_{i}" for i in range(len(df))]
 
         else: # file_path가 단일 문자열일 때
             df = load_df(os.path.join(config['general']['data_path'],file_path), is_train, config)

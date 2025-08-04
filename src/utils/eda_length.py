@@ -10,7 +10,7 @@ tqdm.pandas()
 def count_tokens(text, tokenizer):
     return len(tokenizer.encode(text, add_special_tokens=True))
 
-def eda_length(project_path, tokenizer):
+def eda_length(project_path, tokenizer, model=None):
     train_df = pd.read_csv(os.path.join(project_path, 'data','train.csv'))
     val_df = pd.read_csv(os.path.join(project_path, 'data','dev.csv'))
     test_df = pd.read_csv(os.path.join(project_path, 'data','test.csv'))
