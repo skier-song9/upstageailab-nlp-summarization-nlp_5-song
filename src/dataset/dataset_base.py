@@ -56,6 +56,8 @@ def tokenize_data(df:pd.DataFrame, tokenizer:AutoTokenizer, config:Dict, test:bo
     # summary 처리 
     # test의 경우 summary가 없으니, None으로 출력.
     # train의 경우 summary가 있으니, summary를 토큰화하여 labels를 채운다. 
+    # summaries = df['summary']
+    # print(type(summaries.values[0]))
     tokenized_summaries = None
     if not test:
         summaries = df['summary']
@@ -269,7 +271,7 @@ def clean_text(text: str) -> str:
     text = re.sub(r"\n+", r"\n", text)
 
     # 중복 공백 제거
-    text = re.sub(r"\s+", ' ', text)
+    text = re.sub(r"[ \t]+", ' ', text)
 
     return text.strip()
 

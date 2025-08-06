@@ -11,7 +11,8 @@ def count_tokens(text, tokenizer):
     return len(tokenizer.encode(text, add_special_tokens=True))
 
 def eda_length(project_path, tokenizer, model=None):
-    train_df = pd.read_csv(os.path.join(project_path, 'data','train.csv'))
+    ai_hub_sft = pd.read_csv(os.path.join(project_path, 'data','ai_hub_02daily_sft_cleaned.csv'))
+    train_df = pd.read_csv(os.path.join(project_path, 'data','train_clean_special_tokens.csv'))
     val_df = pd.read_csv(os.path.join(project_path, 'data','dev.csv'))
     test_df = pd.read_csv(os.path.join(project_path, 'data','test.csv'))
     sub_df = pd.read_csv(os.path.join(project_path, 'data','submission_best.csv')) # 48.02 점 submission 파일
@@ -21,6 +22,8 @@ def eda_length(project_path, tokenizer, model=None):
     print("Processing train_df...")
     train_df['dialogue_token_count'] = train_df['dialogue'].progress_apply(lambda x: count_tokens(x, tokenizer))
     train_df['summary_token_count'] = train_df['summary'].progress_apply(lambda x: count_tokens(x, tokenizer))
+    ai_hub_sft['dialogue_token_count'] = ai_hub_sft['dialogue'].progress_apply(lambda x: count_tokens(x, tokenizer))
+    ai_hub_sft['summary_token_count'] = ai_hub_sft['summary'].progress_apply(lambda x: count_tokens(x, tokenizer))
 
     print("\nProcessing val_df...")
     val_df['dialogue_token_count'] = val_df['dialogue'].progress_apply(lambda x: count_tokens(x, tokenizer))
@@ -31,16 +34,18 @@ def eda_length(project_path, tokenizer, model=None):
     test_df['summary_token_count'] = test_df['summary'].progress_apply(lambda x: count_tokens(x, tokenizer))
 
     train_df['token_compress_ratio'] = train_df['summary_token_count'] / train_df['dialogue_token_count']
+    ai_hub_sft['token_compress_ratio'] = ai_hub_sft['summary_token_count'] / ai_hub_sft['dialogue_token_count']
     val_df['token_compress_ratio'] = val_df['summary_token_count'] / val_df['dialogue_token_count']
     test_df['token_compress_ratio'] = test_df['summary_token_count'] / test_df['dialogue_token_count']
     
     ### Dialogue의 최대 토큰 길이
     print(
         f"train dialogue 최대 토큰 길이: \t{max(train_df['dialogue_token_count'])}\n"
+        f"ai-hub dialogue 최대 토큰 길이: \t{max(ai_hub_sft['dialogue_token_count'])}\n"
         f"validation dialogue 최대 토큰 길이: \t{max(val_df['dialogue_token_count'])}\n"
         f"test dialogue 최대 토큰 길이: \t{max(test_df['dialogue_token_count'])}\n"
     )
-    max_encoder_length = max(max(train_df['dialogue_token_count']),max(val_df['dialogue_token_count']),max(test_df['dialogue_token_count']))
+    max_encoder_length = max(max(train_df['dialogue_token_count']),max(val_df['dialogue_token_count']),max(test_df['dialogue_token_count']), max(ai_hub_sft['dialogue_token_count']))
 
     # Set up the figure and axes for subplots
     fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(5, 8))
@@ -48,6 +53,7 @@ def eda_length(project_path, tokenizer, model=None):
 
     # Plot for dialogue_token_count
     sns.histplot(train_df['dialogue_token_count'], kde=True, ax=axes[0], color='skyblue', stat='density', label='train')
+    sns.histplot(ai_hub_sft['dialogue_token_count'], kde=True, ax=axes[0], color='lightgray', stat='density', label='ai-hub')
     sns.histplot(val_df['dialogue_token_count'], kde=True, ax=axes[0], color='lightcoral', stat='density', label='val')
     sns.histplot(test_df['dialogue_token_count'], kde=True, ax=axes[0], color='lightgreen', stat='density', label='test')
     axes[0].set_title('Train/Val/Test Dialogue Token Count')
@@ -56,6 +62,7 @@ def eda_length(project_path, tokenizer, model=None):
     axes[0].legend()
 
     sns.histplot(train_df['summary_token_count'], kde=True, ax=axes[1], color='skyblue', stat='density', label='train')
+    sns.histplot(ai_hub_sft['summary_token_count'], kde=True, ax=axes[1], color='lightgray', stat='density', label='ai-hub')
     sns.histplot(val_df['summary_token_count'], kde=True, ax=axes[1], color='lightcoral', stat='density', label='val')
     sns.histplot(test_df['summary_token_count'], kde=True, ax=axes[1], color='lightgreen', stat='density', label='test')
     axes[1].set_title('Train/Val/Test Summary Token Count')
@@ -64,6 +71,7 @@ def eda_length(project_path, tokenizer, model=None):
     axes[1].legend()
 
     sns.histplot(train_df['token_compress_ratio'], kde=True, ax=axes[2], color='skyblue', stat='density', label='train')
+    sns.histplot(ai_hub_sft['token_compress_ratio'], kde=True, ax=axes[2], color='lightgray', stat='density', label='ai-hub')
     sns.histplot(val_df['token_compress_ratio'], kde=True, ax=axes[2], color='lightcoral', stat='density', label='val')
     sns.histplot(test_df['token_compress_ratio'], kde=True, ax=axes[2], color='lightgreen', stat='density', label='test')
     axes[2].set_title('Train/Val/Test Compression Ratio')

@@ -132,7 +132,7 @@ def parallel_summary_processing(df: pd.DataFrame) -> pd.DataFrame:
     with Pool(num_cores) as pool:
         # pool.map을 사용하여 각 토픽 문자열에 병렬로 함수를 적용합니다.
         # cleaned_topics = pool.map(process_topic_list, df['topic'].values)
-        cleaned_summaries = list(tqdm(pool.imap_unordered(process_topic_list, df['summary'].values), total=len(df)))
+        cleaned_summaries = list(tqdm(pool.imap_unordered(process_summary_list, df['summary'].values), total=len(df)))
     
     # 처리된 결과를 데이터프레임에 할당합니다.
     df['summary'] = cleaned_summaries

@@ -97,7 +97,7 @@ def main(config, practice=False, config_filename="config.yaml"):
         print()
 
         # save config file in output_dir
-        config_path = os.path.join(project_dir, 'general','output_dir',args.config)
+        config_path = os.path.join(project_dir, config['general']['output_dir'], args.config)
         with open(config_path, "w") as file:
             yaml.dump(config, file, allow_unicode=True)
 
