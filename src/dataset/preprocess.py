@@ -34,9 +34,6 @@ def clean_text(text: str) -> str:
     if not isinstance(text, str):
         return ""
     
-    ### Sepcial Token 처리 추가
-    
-    
     # 줄바꿈 표현 통일
     text = text.replace("\\n", "\n").replace("<br>", "\n").replace("</s>", "\n")
 
@@ -51,7 +48,7 @@ def clean_text(text: str) -> str:
     text = re.sub(r"\n+", r"\n", text)
 
     # 중복 공백 제거
-    text = re.sub(r"\s+", ' ', text)
+    text = re.sub(r"[ \t]+", ' ', text)
 
     return text.strip()
 
@@ -61,15 +58,15 @@ def add_instructions(row:pd.Series) -> pd.Series:
     :param str dialogue: _description_
     :return str: _description_
     """
-    try:
-        topic = str(row['topic']).strip()
-        dialogue = row['dialogue']
-        dialogue = f"#Topic#{topic}#SEP##Dialogue#{dialogue}"
-        row['dialogue'] = dialogue
+    
+    topic = str(row['topic']).strip()
+    dialogue = row['dialogue']
+    dialogue = f"#Topic#{topic}\n#Dialogue#{dialogue}"
+    row['dialogue'] = dialogue
     ##Topic#','#Dialogue#','#Summary#','#SEP#
-    except:
-        return row
+    
     return row
+
 
 # 데이터 전처리를 위한 클래스로, 데이터셋을 데이터프레임으로 변환하고 인코더와 디코더의 입력을 생성합니다.
 class Preprocess:
@@ -88,13 +85,16 @@ class Preprocess:
     def make_set_as_df(file_path, is_train = True, config=None):
         df = pd.read_csv(file_path) # CSV 파일을 읽어 데이터프레임 생성
         # 🔁 발화자 기반 지시표현 보완 전처리 적용
-        df['dialogue'] = df['dialogue'].apply(resolve_deictic_with_speaker)
+        # df['dialogue'] = df['dialogue'].apply(resolve_deictic_with_speaker)
         # 🔁 텍스트 클린 함수
         df['dialogue'] = df['dialogue'].apply(clean_text)
 
         ### special token에 #Topic# 이 있으면, 지시어 프롬프트에 추가.
+        print("[+] Special tokens:", config['tokenizer']['special_tokens'])
         if config is not None and '#Topic#' in config['tokenizer']['special_tokens']:
-            df['dialogue'] = df['dialogue'].apply(add_instructions)
+            print("[+] Add Topic to dialogue")
+            df = df.apply(add_instructions, axis=1)
+            # print('ex:', df['dialogue'].values[0])
 
         # is_train 플래그가 True이면 학습용 데이터로 처리
         if is_train:
@@ -118,4 +118,3 @@ class Preprocess:
             decoder_input = dataset['summary'].apply(lambda x : self.bos_token + str(x)) # 디코더 입력은 'summary' 앞에 시작 토큰(bos_token)을 추가하여 생성
             decoder_output = dataset['summary'].apply(lambda x : str(x) + self.eos_token) # 디코더 출력(레이블)은 'summary' 뒤에 종료 토큰(eos_token)을 추가하여 생성
             return encoder_input.tolist(), decoder_input.tolist(), decoder_output.tolist() # 인코더 입력, 디코더 입력, 디코더 출력을 리스트 형태로 반환
-

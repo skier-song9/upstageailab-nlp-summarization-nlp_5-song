@@ -8,10 +8,8 @@ mkdir -p logs
 
 # 실행할 YAML 설정 파일 목록을 정의합니다.
 CONFIG_FILES=(
-    "config_exps_08010324.yaml"
-    "config_exps_08010337.yaml"
-    "config_exps_08010408.yaml"
-    "config_exps_08010421.yaml"
+    "config_bart_08060018.yaml"
+    "config_bart_08060019.yaml"
 )
 
 # 파일 목록을 순회하며 각 파일을 순차적으로 실행합니다.

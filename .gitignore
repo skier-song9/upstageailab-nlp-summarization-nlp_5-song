@@ -19,11 +19,9 @@ outputs/*
 
 .env
 
-
+huggingface_app/data/*.csv
 # src/configs/generate_config.ipynb
 src/configs/*.yaml
-data/01_Interview
-data/02_Daily
 logs/
 nohup.out
 ### <<< song gitignore <<<

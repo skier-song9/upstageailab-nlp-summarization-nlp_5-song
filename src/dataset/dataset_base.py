@@ -88,7 +88,7 @@ class DatasetForInference(Dataset):
         return self.len # __init__에서 저장한 길이 반환
 
 # tokenization 과정까지 진행된 최종적으로 모델에 입력될 데이터를 출력합니다.
-def prepare_train_dataset(config, preprocessor, data_dir, tokenizer):
+def prepare_train_dataset(config, preprocessor, data_dir, tokenizer, args=None):
     """_summary_
 
     :param dictionary config: 각종 설정 딕셔너리
@@ -97,12 +97,16 @@ def prepare_train_dataset(config, preprocessor, data_dir, tokenizer):
     :param AutoTokenizer tokenizer: tokenizer 객체
     :return torch.utils.data.Dataset: Custom Dataset for train, val
     """
-    train_file_path = os.path.join(data_dir,config['general'].get('train_data','train.csv'))
+    train_file_path = os.path.join(data_dir,config['general'].get('train_data','train_japan_backtranslation_filtered.csv'))
     val_file_path = os.path.join(data_dir,'dev.csv')
 
     # train, validation에 대해 각각 데이터프레임을 구축합니다.
-    train_data = preprocessor.make_set_as_df(train_file_path, config)
-    val_data = preprocessor.make_set_as_df(val_file_path, config)
+    train_data = preprocessor.make_set_as_df(train_file_path, is_train=True, config=config)
+    val_data = preprocessor.make_set_as_df(val_file_path, is_train=True, config=config)
+
+    if args.practice:
+        train_data = train_data.iloc[:128]
+        val_data = val_data.iloc[:100]
 
     print('-'*150)
     print("train dataframe columns:",train_data.columns)
@@ -183,3 +187,4 @@ def prepare_train_dataset(config, preprocessor, data_dir, tokenizer):
 
     print('-'*10, 'Make dataset complete', '-'*10,)
     return train_inputs_dataset, val_inputs_dataset
+    

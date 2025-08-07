@@ -1,16 +1,13 @@
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from multiprocessing import Pool, cpu_count
-from kiwipiepy import Kiwi
-import re
-from tqdm import tqdm
 import pandas as pd
-
-def get_current_time():
-    korea_timezone = ZoneInfo('Asia/Seoul')
-    now_kst = datetime.now(korea_timezone)
-    formatted_time = now_kst.strftime("%m%d%H%M")
-    return formatted_time
+import os
+import re
+data_dir = '/data/ephemeral/home/nlp-5/song/data/'
+daily_df_all_cleaned1 = pd.read_csv(os.path.join(data_dir, "ai_hub_02daily_sft.csv"))
+daily_df_all_cleaned2 = pd.read_csv(os.path.join(data_dir, "ai_hub_02daily_dapt.csv"))
+print(daily_df_all_cleaned1.columns)
+print(daily_df_all_cleaned1.shape)
+print(daily_df_all_cleaned2.columns)
+print(daily_df_all_cleaned2.shape)
 
 def jaccard_similarity_with_tokenizer(sentence1, sentence2, tokenizer):
     """자카드 유사도 측정
@@ -40,6 +37,11 @@ def jaccard_similarity_with_tokenizer(sentence1, sentence2, tokenizer):
         return 1.0
     # 4. 교집합의 크기를 합집합의 크기로 나누어 유사도를 계산합니다.
     return len(intersection) / len(union)
+
+from multiprocessing import Pool, cpu_count
+from kiwipiepy import Kiwi
+import re
+from tqdm import tqdm
 
 def process_topic_list(tt):
     """
@@ -71,43 +73,13 @@ def process_topic_list(tt):
     
     return ", ".join(topic_lists)
 
-def process_summary_list(tt, threshold):
-    """
-    요약 시퀀스에 대해 유사도 기반으로 중복을 제거합니다.
-    """
-    # Kiwi 객체는 프로세스마다 생성해야 안전합니다.
-    kiwi = Kiwi()
-    
-    sentence_list = tt.split(".") # 마침표를 기준으로 분리. 
-    # 어차피 Mr. Smith 같은 거는 유사도 기반 중복 제거에서 제거가 안 되기 때문에 그냥 . 으로 split해도 문제 없음.
-    if not sentence_list or len(sentence_list) < 2:
-        return ". ".join(sentence_list)
-
-    i = 0
-    while i < len(sentence_list):
-        j = i + 1
-        while j < len(sentence_list):
-            sim = jaccard_similarity_with_tokenizer(sentence_list[i], sentence_list[j], kiwi)
-            
-            if sim >= threshold:
-                if len(sentence_list[i]) >= len(sentence_list[j]):
-                    sentence_list.pop(j)
-                else:
-                    sentence_list.pop(i)
-                    i -= 1
-                    break
-            else:
-                j += 1
-        i += 1
-    
-    return ". ".join(sentence_list)
-
 def parallel_topic_processing(df: pd.DataFrame) -> pd.DataFrame:
     """
     멀티프로세싱을 사용하여 데이터프레임의 topic 컬럼을 처리합니다.
     """
     # 시스템의 CPU 코어 수를 가져와 병렬 처리를 위한 풀을 생성합니다.
-    num_cores = cpu_count() // 4
+    # num_cores = cpu_count()
+    num_cores = 48
     with Pool(num_cores) as pool:
         # pool.map을 사용하여 각 토픽 문자열에 병렬로 함수를 적용합니다.
         # cleaned_topics = pool.map(process_topic_list, df['topic'].values)
@@ -117,27 +89,11 @@ def parallel_topic_processing(df: pd.DataFrame) -> pd.DataFrame:
     df['topic'] = cleaned_topics
     return df
 
-def parallel_summary_processing(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    멀티프로세싱을 사용하여 데이터프레임의 topic 컬럼을 처리합니다.
-    """
-    # 중복 제거 이전의 summary 길이 분포
-    desc_summary = df['summary'].apply(len)
-    print("="*15)
-    print(f"중복 제거 전. 평균 길이: {desc_summary.mean():.4f}, 최대 길이: {desc_summary.max()}, 최소 길이: {desc_summary.min()} ")
-    print("="*15)
+daily_df_topic_all_cleaned1 = parallel_topic_processing(daily_df_all_cleaned1.copy())
+daily_df_topic_all_cleaned2 = parallel_topic_processing(daily_df_all_cleaned2.copy())
 
-    # 시스템의 CPU 코어 수를 가져와 병렬 처리를 위한 풀을 생성합니다.
-    num_cores = cpu_count() // 4
-    with Pool(num_cores) as pool:
-        # pool.map을 사용하여 각 토픽 문자열에 병렬로 함수를 적용합니다.
-        # cleaned_topics = pool.map(process_topic_list, df['topic'].values)
-        cleaned_summaries = list(tqdm(pool.imap_unordered(process_summary_list, df['summary'].values), total=len(df)))
-    
-    # 처리된 결과를 데이터프레임에 할당합니다.
-    df['summary'] = cleaned_summaries
-    desc_summary = df['summary'].apply(len)
-    print("="*15)
-    print(f"중복 제거 후. 평균 길이: {desc_summary.mean():.4f}, 최대 길이: {desc_summary.max()}, 최소 길이: {desc_summary.min()} ")
-    print("="*15)
-    return df
+daily_df_topic_all_cleaned1 = daily_df_topic_all_cleaned1[['fname','dialogue','summary','topic']]
+daily_df_topic_all_cleaned2 = daily_df_topic_all_cleaned2[['fname','dialogue','summary','topic']]
+
+daily_df_topic_all_cleaned1.to_csv(os.path.join(data_dir, "ai_hub_02daily_sft_cleaned.csv"), index=False)
+daily_df_topic_all_cleaned2.to_csv(os.path.join(data_dir, "ai_hub_02daily_dapt_cleaned.csv"), index=False)
