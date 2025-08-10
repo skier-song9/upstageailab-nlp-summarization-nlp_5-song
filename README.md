@@ -178,6 +178,20 @@ e.g.
 
 ## 5. Result
 
+### Experiments Results
+
+- 경진대회를 진행하며 점진적인 점수 향상을 경험.
+    ![score_over_time](https://github.com/AIBootcamp13/upstageailab-nlp-summarization-nlp_5/blob/main/images/score_over_time.png)
+
+
+- BART, T5 모델별 평균 점수 : `digit82/kobart-summarization` 의 평균 점수가 좋아 하이퍼파라미터 실험도 해당 모델에 대해서 진행
+    ![score_by_models](https://github.com/AIBootcamp13/upstageailab-nlp-summarization-nlp_5/blob/main/images/score_by_models.png)
+
+- 성능에 가장 큰 영향을 미친 encoder-max-length, decoder-max-length 파라미터에 따른 성능 차이
+    - encoder-max-length가 512일 때 더 좋은 성능을 보였다. 이는 text summarization을 위해 꼭 모든 context를 입력받을 필요가 없음을 시사한다.
+    ![score_by_enc-dec-len](https://github.com/AIBootcamp13/upstageailab-nlp-summarization-nlp_5/blob/main/images/score_by_enc-dec-len.png)
+
+
 ### Leader Board
 
 ![LB](https://github.com/AIBootcamp13/upstageailab-nlp-summarization-nlp_5/blob/main/images/LB.png)
